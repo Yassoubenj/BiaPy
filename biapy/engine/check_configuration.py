@@ -537,7 +537,8 @@ def check_configuration(cfg, jobname, check_data_paths=True):
             "CE",
             "DICE",
             "W_CE_DICE",
-        ], "LOSS.TYPE not in ['CE', 'DICE', 'W_CE_DICE']"
+            "CLDICE",
+        ], "LOSS.TYPE not in ['CE', 'DICE', 'W_CE_DICE', 'CLDICE']"
 
         if cfg.MODEL.N_CLASSES > 2 and loss != "CE":
             raise ValueError("'MODEL.N_CLASSES' can only be done with 'CE' loss")
