@@ -10,6 +10,7 @@ import torchvision.transforms as T
 from pytorch_msssim import SSIM
 import torch.nn.functional as F
 import torch.nn as nn
+from torch.nn.modules.loss import _Loss
 from typing import Dict, Optional, List
 
 
@@ -406,7 +407,208 @@ class DiceLoss(nn.Module):
         dice = (2.0 * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
 
         return 1 - dice
+    
+# Copyright (c) MONAI Consortium
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
+
+def soft_erode(img: torch.Tensor) -> torch.Tensor:
+    """
+    Perform soft erosion on the input image
+    Adapted from:
+    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L6
+    """
+    if img.dim() == 4:
+        p1 = -(F.max_pool2d(-img, (3, 1), (1, 1), (1, 0)))
+        p2 = -(F.max_pool2d(-img, (1, 3), (1, 1), (0, 1)))
+        return torch.min(p1, p2)
+    elif img.dim() == 5:
+        p1 = -(F.max_pool3d(-img, (3, 1, 1), (1, 1, 1), (1, 0, 0)))
+        p2 = -(F.max_pool3d(-img, (1, 3, 1), (1, 1, 1), (0, 1, 0)))
+        p3 = -(F.max_pool3d(-img, (1, 1, 3), (1, 1, 1), (0, 0, 1)))
+        return torch.min(torch.min(p1, p2), p3)
+
+
+def soft_dilate(img: torch.Tensor) -> torch.Tensor:
+    """
+    Perform soft dilation on the input image
+    Adapted from:
+    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L18
+    """
+    if img.dim() == 4:
+        return F.max_pool2d(img, (3, 3), (1, 1), (1, 1))
+    elif img.dim() == 5:
+        return F.max_pool3d(img, (3, 3, 3), (1, 1, 1), (1, 1, 1))
+
+
+def soft_open(img: torch.Tensor) -> torch.Tensor:
+    """
+    Wrapper function to perform soft opening on the input image
+    """
+    return soft_dilate(soft_erode(img))
+
+
+def soft_skel(img: torch.Tensor, iter_: int) -> torch.Tensor:
+    """
+    Perform soft skeletonization on the input image
+    Adapted from:
+    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L29
+    """
+    img1 = soft_open(img)
+    skel = F.relu(img - img1)
+    for _ in range(iter_):
+        img = soft_erode(img)
+        img1 = soft_open(img)
+        delta = F.relu(img - img1)
+        skel = skel + F.relu(delta - skel * delta)
+    return skel
+
+
+def soft_dice(y_true: torch.Tensor, y_pred: torch.Tensor, smooth: float = 1.0) -> torch.Tensor:
+    """
+    Function to compute soft dice loss
+    Adapted from:
+    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/cldice.py#L22
+    """
+    intersection = torch.sum((y_true * y_pred)[:, 1:, ...])
+    coeff = (2.0 * intersection + smooth) / (
+        torch.sum(y_true[:, 1:, ...]) + torch.sum(y_pred[:, 1:, ...]) + smooth
+    )
+    return 1.0 - coeff
+
+
+
+class SoftclDiceLoss(_Loss):
+    def __init__(
+        self,
+        iter_: int = 3,
+        smooth: float = 1.0,
+        num_classes: int | None = None,
+    ) -> None:
+        super().__init__()
+        self.iter = iter_
+        self.smooth = smooth
+        self.num_classes = num_classes  
+        
+    def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        # 1) logits → probabilités
+        prob = F.softmax(y_pred, dim=1)
+
+        # 2) indices → one-hot [B, C, H, W]
+        # gérer cas [B,1,H,W] ou [B,H,W]
+        if y_true.dim() == 4 and y_true.size(1) == 1:
+            y_true = y_true.squeeze(1)
+        y_true = y_true.long()  # on s’assure d’avoir des entiers
+
+        # one-hot + permutation
+        y_true_oh = F.one_hot(y_true, num_classes=self.num_classes)  # [B,H,W,C]
+        y_true_oh = y_true_oh.permute(0, 3, 1, 2).float()            # [B,C,H,W]
+
+        # 3) on appelle le pipeline clDice original sur des tenseurs valides
+        skel_pred = soft_skel(prob, self.iter)
+        skel_true = soft_skel(y_true_oh, self.iter)
+
+        tprec = (
+            torch.sum(torch.multiply(skel_pred, y_true_oh)[:, 1:, ...]) + self.smooth
+        ) / (torch.sum(skel_pred[:, 1:, ...]) + self.smooth)
+
+        tsens = (
+            torch.sum(torch.multiply(skel_true, prob)[:, 1:, ...]) + self.smooth
+        ) / (torch.sum(skel_true[:, 1:, ...]) + self.smooth)
+
+        return 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+
+
+
+# class SoftclDiceLoss(_Loss):
+#     """
+#     Compute the Soft clDice loss defined in:
+#     Shit et al. (2021) clDice -- A Novel Topology-Preserving Loss Function
+#     for Tubular Structure Segmentation. (https://arxiv.org/abs/2003.07311)
+#     """
+#     def __init__(self, iter_: int = 3, smooth: float = 1.0) -> None:
+#         super().__init__()
+#         self.iter = iter_
+#         self.smooth = smooth
+
+#     def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor) -> torch.Tensor:
+#         skel_pred = soft_skel(y_pred, self.iter) #devient nul 
+#         skel_true = soft_skel(y_true, self.iter) #aussi
+#         tprec = (
+#             torch.sum(torch.multiply(skel_pred, y_true)[:, 1:, ...]) + self.smooth
+#         ) / (
+#             torch.sum(skel_pred[:, 1:, ...]) + self.smooth
+#         )
+#         tsens = (
+#             torch.sum(torch.multiply(skel_true, y_pred)[:, 1:, ...]) + self.smooth
+#         ) / (
+#             torch.sum(skel_true[:, 1:, ...]) + self.smooth
+#         )
+#         return 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+
+# class SoftclDiceLossWrapper(_Loss):
+#     """
+#     Wrapper pour SoftclDiceLoss qui :
+#       - prend en entrée des logits [B, C, H, W] et des masks indice [B, H, W] ou [B,1,H,W]
+#       - fait softmax sur les logits
+#       - convertit les masks en one-hot
+#       - appelle SoftclDiceLoss(y_true_oh, prob)
+#     """
+#     def __init__(self, iter_: int, smooth: float, num_classes: int) -> None:
+#         super().__init__()
+#         self.cldice = SoftclDiceLoss(iter_, smooth)
+#         self.num_classes = num_classes
+
+#     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+#         prob = F.softmax(y_pred, dim=1) #obtenir les proba
+
+#         # 2) indices → one-hot [B, C, H, W]
+#         if y_true.dim() == 4 and y_true.size(1) == 1:
+#             y_true = y_true.squeeze(1)
+#         y_true = y_true.long()  
+#         y_true_oh = F.one_hot(y_true, num_classes=self.num_classes)  # [B, H, W, C]
+#         y_true_oh = y_true_oh.permute(0, 3, 1, 2).float()             # [B, C, H, W]
+
+#         # 3) appel du SoftclDiceLoss “pur”
+#         return self.cldice(y_true_oh, prob)
+
+
+# class SoftDiceclDiceLoss(_Loss):
+#     """
+#     Combine Soft Dice and Soft clDice losses
+#     """
+#     def __init__(
+#         self, iter_: int = 3, alpha: float = 0.5, smooth: float = 1.0
+#     ) -> None:
+#         super().__init__()
+#         self.iter = iter_
+#         self.alpha = alpha
+#         self.smooth = smooth
+
+#     def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor) -> torch.Tensor:
+#         dice_loss = soft_dice(y_true, y_pred, self.smooth)
+#         skel_pred = soft_skel(y_pred, self.iter)
+#         skel_true = soft_skel(y_true, self.iter)
+#         tprec = (
+#             torch.sum(torch.multiply(skel_pred, y_true)[:, 1:, ...]) + self.smooth
+#         ) / (
+#             torch.sum(skel_pred[:, 1:, ...]) + self.smooth
+#         )
+#         tsens = (
+#             torch.sum(torch.multiply(skel_true, y_pred)[:, 1:, ...]) + self.smooth
+#         ) / (
+#             torch.sum(skel_true[:, 1:, ...]) + self.smooth
+#         )
+#         cldice_loss = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+#         return (1.0 - self.alpha) * dice_loss + self.alpha * cldice_loss
 
 class DiceBCELoss(nn.Module):
     """

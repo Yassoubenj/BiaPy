@@ -1135,6 +1135,8 @@ class Config:
         _C.LOSS.TYPE = ""
         # Weights to be applied in multiple loss combination cases. They must sum 1. E.g. [0.3, 0.7].
         _C.LOSS.WEIGHTS = [0.66, 0.34]
+        # # weight for cldice soft skel # add by Yasmine
+        # _C.LOSS.SOFT_SKEL_ITER = 10
         # To adjust the loss function based on the imbalance between classes. Used when LOSS.TYPE == "CE" in detection and
         # semantic segmentation and if using B,C,M,P or A channels in instance segmentation workflow.
         _C.LOSS.CLASS_REBALANCE = False
