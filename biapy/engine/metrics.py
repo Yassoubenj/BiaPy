@@ -510,26 +510,44 @@ class SoftclDiceLoss(_Loss):
         #y_true : indice 
 
         #1) logits → probabilités
-        prob = F.softmax(y_pred, dim=1)
+        C_pred = y_pred.size(1)
+        if C_pred == 1 :
+            #segmentation binaire : 
+            p_fg = torch.sigmoid(y_pred) #foreground
+            p_bg = 1.0 - p_fg #background
+            prob = torch.cat([p_bg,p_fg], dim=1)
+            C=2
+        else :
+            prob = F.softmax(y_pred, dim=1)
+            C=C_pred
 
-        # 2) indices → one-hot [B, C, H, W]
-        # gérer cas [B,1,H,W] ou [B,H,W]
+        # 2) indices → one-hot
+
         if y_true.dim() == prob.dim():
             y_true = y_true.squeeze(1)
+        y_true = y_true.long() 
+
         # if y_true.dim() == 4 and y_true.size(1) == 1:
         #     y_true = y_true.squeeze(1)
 
-        y_true = y_true.long()  # on s’assure d’avoir des entiers
-
-        # one-hot + permutation
-        y_true_oh = F.one_hot(y_true, num_classes=self.num_classes)# [B,H,W,C]
-        y_true_oh = y_true_oh.float().movedim(-1,1)
-        #y_true_oh = y_true_oh.permute(0, 3, 1, 2).float()            # [B,C,H,W]
+        
+        # one-hot + permutation 
+        if C_pred == 1 :
+        #binaire : on empile mannuellement background et foreground
+            mask_bg = (y==0).long()
+            mask_fg = (y==1).long()
+            y_true_oh = torch.stack([mask_bg,mask_fg], dim=1).float()
+        else : 
+            y_true_oh = F.one_hot(y_true, num_classes=self.num_classes).float().movedim(-1,1)
+        
+        #y_true_oh = y_true_oh.permute(0, 3, 1, 2).float() [B,C,H,W]
+        #on devrait avoir deux canaux : foreground et bakground ? 
+        #dans monai on ignore background et on compare que foreground donc canal 1 
 
         # 3) on appelle le pipeline clDice original sur des tenseurs valides
         skel_pred = soft_skel(prob, self.iter)
         skel_true = soft_skel(y_true_oh, self.iter)
-
+        #mettre le canal 1 après
         tprec = (
             torch.sum(torch.multiply(skel_pred, y_true_oh)[:, 1:, ...]) + self.smooth
         ) / (torch.sum(skel_pred[:, 1:, ...]) + self.smooth)
