@@ -534,8 +534,8 @@ class SoftclDiceLoss(_Loss):
         # one-hot + permutation 
         if C_pred == 1 :
         #binaire : on empile mannuellement background et foreground
-            mask_bg = (y==0).long()
-            mask_fg = (y==1).long()
+            mask_bg = (y_true==0).long()
+            mask_fg = (y_true==1).long()
             y_true_oh = torch.stack([mask_bg,mask_fg], dim=1).float()
         else : 
             y_true_oh = F.one_hot(y_true, num_classes=self.num_classes).float().movedim(-1,1)
