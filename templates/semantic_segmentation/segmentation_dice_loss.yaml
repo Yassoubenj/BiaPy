@@ -1,0 +1,55 @@
+# BiaPy version: 3.5.13
+
+SYSTEM:
+    NUM_CPUS: -1
+
+PROBLEM:
+    TYPE: SEMANTIC_SEG
+    NDIM: 3D
+  
+DATA: 
+    PATCH_SIZE: (32, 128, 128, 3)
+    TRAIN:                                                                                                              
+        PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/train/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/train/label
+        IN_MEMORY: True
+    VAL:
+        SPLIT_TRAIN: 0.1
+    TEST:                                                                                                               
+        PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/test/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/test/label
+        IN_MEMORY: True
+        LOAD_GT: True
+        PADDING: (4,16,16)
+
+AUGMENTOR:
+    ENABLE: False
+    RANDOM_ROT: True
+    VFLIP: True
+    HFLIP: True
+    ZFLIP: True
+    CHANNEL_SHUFFLE: True
+
+MODEL:
+    ARCHITECTURE: resunet++
+    FEATURE_MAPS: [16, 32, 64, 128, 256]
+    LOAD_CHECKPOINT: False
+    N_CLASSES : 2
+
+
+TRAIN:
+    ENABLE: True
+    OPTIMIZER: ADAMW
+    LR: 1.E-3
+    BATCH_SIZE: 2
+    EPOCHS: 30
+    PATIENCE: 30
+  
+  
+TEST:
+    ENABLE: True
+    AUGMENTATION: False
+    FULL_IMG: False
+
+LOSS:
+    TYPE: DICE
