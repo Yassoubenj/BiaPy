@@ -13,6 +13,13 @@ import torch.nn as nn
 from torch.nn.modules.loss import _Loss
 from typing import Dict, Optional, List
 
+# def mse_loss(predictions: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+#     """
+#     Mean Squared Error loss, voxel-wise, reduction='mean'.
+#     predictions: (B, 1, Z, Y, X)
+#     targets:     (B, 1, Z, Y, X)
+#     """
+#     return F.mse_loss(predictions, targets)
 
 def jaccard_index_numpy(y_true, y_pred):
     """
@@ -499,18 +506,25 @@ class SoftclDiceLoss(_Loss):
         self.num_classes = num_classes  
         
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        # 1) logits → probabilités
+        #y_pred : logit 
+        #y_true : indice 
+
+        #1) logits → probabilités
         prob = F.softmax(y_pred, dim=1)
 
         # 2) indices → one-hot [B, C, H, W]
         # gérer cas [B,1,H,W] ou [B,H,W]
-        if y_true.dim() == 4 and y_true.size(1) == 1:
+        if y_true.dim() == prob.dim():
             y_true = y_true.squeeze(1)
+        # if y_true.dim() == 4 and y_true.size(1) == 1:
+        #     y_true = y_true.squeeze(1)
+
         y_true = y_true.long()  # on s’assure d’avoir des entiers
 
         # one-hot + permutation
-        y_true_oh = F.one_hot(y_true, num_classes=self.num_classes)  # [B,H,W,C]
-        y_true_oh = y_true_oh.permute(0, 3, 1, 2).float()            # [B,C,H,W]
+        y_true_oh = F.one_hot(y_true, num_classes=self.num_classes)# [B,H,W,C]
+        y_true_oh = y_true_oh.float().movedim(-1,1)
+        #y_true_oh = y_true_oh.permute(0, 3, 1, 2).float()            # [B,C,H,W]
 
         # 3) on appelle le pipeline clDice original sur des tenseurs valides
         skel_pred = soft_skel(prob, self.iter)
