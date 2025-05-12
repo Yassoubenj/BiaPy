@@ -511,7 +511,7 @@ class SoftclDiceLoss(_Loss):
 
         #1) logits → probabilités
         C_pred = y_pred.size(1)
-        print(f"[DEBUG] C_pred = {C_pred}")
+        #print(f"[DEBUG] C_pred = {C_pred}")
         prob = F.softmax(y_pred, dim=1)
         # if C_pred == 1 :
         #     #segmentation binaire : 
@@ -552,12 +552,12 @@ class SoftclDiceLoss(_Loss):
         skel_true = soft_skel(y_true_oh, self.iter)
         #mettre le canal 1 après
         tprec = (
-            torch.sum(torch.multiply(skel_pred, y_true_oh)[:, 1:, ...]) + self.smooth
-        ) / (torch.sum(skel_pred[:, 1:, ...]) + self.smooth)
+            torch.sum(torch.multiply(skel_pred, y_true_oh)[:, 0:, ...]) + self.smooth
+        ) / (torch.sum(skel_pred[:, 0:, ...]) + self.smooth)
 
         tsens = (
-            torch.sum(torch.multiply(skel_true, prob)[:, 1:, ...]) + self.smooth
-        ) / (torch.sum(skel_true[:, 1:, ...]) + self.smooth)
+            torch.sum(torch.multiply(skel_true, prob)[:, 0:, ...]) + self.smooth
+        ) / (torch.sum(skel_true[:, 0:, ...]) + self.smooth)
 
         return 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
 
