@@ -2,8 +2,9 @@ import math
 import torch
 import numpy as np
 from tqdm import tqdm
+
 import torchmetrics.regression
-_OriginalMSE = torch.metrics.regression.MeanSquaredError
+_OriginalMSE = torchmetrics.regression.MeanSquaredError
 class MeanSquaredError(_OriginalMSE):
     def update(self, preds: torch.Tensor, target: torch.Tensor) -> None:
         preds = preds.contiguous()
