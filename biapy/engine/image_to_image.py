@@ -2,6 +2,16 @@ import math
 import torch
 import numpy as np
 from tqdm import tqdm
+import torchmetrics.regression
+_OriginalMSE = torch.metrics.regression.MeanSquaredError
+class MeanSquaredError(_OriginalMSE):
+    def update(self, preds: torch.Tensor, target: torch.Tensor) -> None:
+        preds = preds.contiguous()
+        target = target.contiguous()
+        return super().update(preds, target)
+    
+torchmetrics.regression.MeanSquaredError = MeanSquaredError
+
 from torchmetrics.regression import MeanSquaredError, MeanAbsoluteError
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
