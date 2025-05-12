@@ -525,20 +525,21 @@ class SoftclDiceLoss(_Loss):
 
         if y_true.dim() == prob.dim():
             y_true = y_true.squeeze(1)
-        y_true = y_true.long() 
+        y_true = y_true.long()
+        y_true_oh = F.one_hot(y_true, num_classes=self.num_classes).float().movedim(-1,1) 
 
         # if y_true.dim() == 4 and y_true.size(1) == 1:
         #     y_true = y_true.squeeze(1)
 
         
-        # one-hot + permutation 
-        if C_pred == 1 :
-        #binaire : on empile mannuellement background et foreground
-            mask_bg = (y_true==0).long()
-            mask_fg = (y_true==1).long()
-            y_true_oh = torch.stack([mask_bg,mask_fg], dim=1).float()
-        else : 
-            y_true_oh = F.one_hot(y_true, num_classes=self.num_classes).float().movedim(-1,1)
+        # A detag one-hot + permutation 
+        # if C_pred == 1 :
+        # #binaire : on empile mannuellement background et foreground
+        #     mask_bg = (y_true==0).long()
+        #     mask_fg = (y_true==1).long()
+        #     y_true_oh = torch.stack([mask_bg,mask_fg], dim=1).float()
+        # else : 
+        #     y_true_oh = F.one_hot(y_true, num_classes=self.num_classes).float().movedim(-1,1)
         
         #y_true_oh = y_true_oh.permute(0, 3, 1, 2).float() [B,C,H,W]
         #on devrait avoir deux canaux : foreground et bakground ? 
