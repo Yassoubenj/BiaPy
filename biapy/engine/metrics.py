@@ -516,7 +516,7 @@ class SoftclDiceLoss(_Loss):
             p_fg = torch.sigmoid(y_pred) #foreground
             p_bg = 1.0 - p_fg #background
             prob = torch.cat([p_bg,p_fg], dim=1)
-            C=2
+            #C=2
         else :
             prob = F.softmax(y_pred, dim=1)
             C=C_pred
