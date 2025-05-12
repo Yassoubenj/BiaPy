@@ -511,15 +511,17 @@ class SoftclDiceLoss(_Loss):
 
         #1) logits → probabilités
         C_pred = y_pred.size(1)
-        if C_pred == 1 :
-            #segmentation binaire : 
-            p_fg = torch.sigmoid(y_pred) #foreground
-            p_bg = 1.0 - p_fg #background
-            prob = torch.cat([p_bg,p_fg], dim=1)
-            #C=2
-        else :
-            prob = F.softmax(y_pred, dim=1)
-            C=C_pred
+        print(f"[DEBUG] C_pred = {C_pred}")
+        prob = F.softmax(y_pred, dim=1)
+        # if C_pred == 1 :
+        #     #segmentation binaire : 
+        #     p_fg = torch.sigmoid(y_pred) #foreground
+        #     p_bg = 1.0 - p_fg #background
+        #     prob = torch.cat([p_bg,p_fg], dim=1)
+        #     #C=2
+        # else :
+        #     prob = F.softmax(y_pred, dim=1)
+        #     C=C_pred
 
         # 2) indices → one-hot
 
