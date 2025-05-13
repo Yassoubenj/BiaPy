@@ -334,7 +334,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
             Resulting targets.
         """
         targets = to_pytorch_format(targets, self.axes_order, self.device, dtype=self.loss_dtype)
-        if self.cfg.MODEL.N.CLASSES = 2 :
+        if self.cfg.MODEL.N_CLASSES = 2 :
             targets = torch.nn.functional.one_hot(targets.squeeze(1).long(), num_classes=2)
             targets = targets.permute(0,4,1,2,3)
         return targets
