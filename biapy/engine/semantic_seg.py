@@ -78,7 +78,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         self.model_output_channels = {
             "type": "mask",
             "channels": [self.cfg.MODEL.N_CLASSES],
-            #"channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES],
+            #"channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES], # on doit avoir deux canal pour utiliser cldice de monai
         }
         self.multihead = False
         self.activations = [{":": "CE_Sigmoid"}]
@@ -333,13 +333,13 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         targets : Torch tensor
             Resulting targets.
         """
-        targets = to_pytorch_format(targets, self.axes_order, self.device, dtype=self.loss_dtype)
-        if self.cfg.MODEL.N_CLASSES == 2 :
-            targets = torch.nn.functional.one_hot(targets.squeeze(1).long(), num_classes=2)
-            targets = targets.permute(0,4,1,2,3)
-        return targets
+        # targets = to_pytorch_format(targets, self.axes_order, self.device, dtype=self.loss_dtype)
+        # if self.cfg.MODEL.N_CLASSES == 2 :
+        #     targets = torch.nn.functional.one_hot(targets.squeeze(1).long(), num_classes=2)
+        #     targets = targets.permute(0,4,1,2,3)
+        # return targets
         # We do not use 'batch' input but in SSL workflow
-        #return to_pytorch_format(targets, self.axes_order, self.device, dtype=self.loss_dtype)
+        return to_pytorch_format(targets, self.axes_order, self.device, dtype=self.loss_dtype)
 
     def after_merge_patches(self, pred):
         """
