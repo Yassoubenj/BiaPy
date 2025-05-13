@@ -510,7 +510,7 @@ class SoftclDiceLoss(_Loss):
         #y_true : indice 
 
         #1) logits → probabilités
-        C_pred = y_true.size(1)
+        C_pred = y_pred.size(1)
         print(f"[DEBUG] C_pred = {C_pred}")
         prob = F.softmax(y_pred, dim=1)
         # if C_pred == 1 :
@@ -524,7 +524,8 @@ class SoftclDiceLoss(_Loss):
         #     C=C_pred
 
         # 2) indices → one-hot
-
+        print("y_pred:", y_pred, "type:", type(y_pred))
+        print("y_true:", y_true, "type:", type(y_true))
         if y_true.dim() == prob.dim():
             y_true = y_true.squeeze(1)
         C_pred = y_true.size(1)
