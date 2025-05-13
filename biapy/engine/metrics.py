@@ -510,8 +510,9 @@ class SoftclDiceLoss(_Loss):
         #y_true : indice 
 
         #1) logits → probabilités
-        C_pred = y_pred.size(1)
+        C_pred = y_pred.size(1) #les prediction : on a 1 oui c'est la classe ( problème pour monai donc à modifier dans semantic_seg N_classes)
         print(f"[DEBUG] C_pred = {C_pred}")
+
         prob = F.softmax(y_pred, dim=1)
         # if C_pred == 1 :
         #     #segmentation binaire : 
@@ -528,10 +529,11 @@ class SoftclDiceLoss(_Loss):
         print("y_true type:", type(y_true), y_true.shape)
         if y_true.dim() == prob.dim():
             y_true = y_true.squeeze(1)
+
         C_pred = y_true.size(1)
         print(f"[DEBUG] C_pred = {C_pred}")
         y_true = y_true.long()
-        y_true_oh = F.one_hot(y_true, num_classes=2).float().movedim(-1,1) 
+        y_true_oh = F.one_hot(y_true, num_classes=1).float().movedim(-1,1) 
 
         # if y_true.dim() == 4 and y_true.size(1) == 1:
         #     y_true = y_true.squeeze(1)
