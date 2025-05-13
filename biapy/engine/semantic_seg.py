@@ -3,7 +3,7 @@ import numpy as np
 from skimage.transform import resize
 from typing import Dict, Optional
 from numpy.typing import NDArray
-
+import torch.nn as nn
 
 from biapy.data.post_processing.post_processing import apply_binary_mask
 from biapy.engine.base_workflow import Base_Workflow
@@ -77,7 +77,8 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         """
         self.model_output_channels = {
             "type": "mask",
-            "channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES],
+            "channels": [self.cfg.MODEL.N_CLASSES],
+            #"channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES],
         }
         self.multihead = False
         self.activations = [{":": "CE_Sigmoid"}]
@@ -149,6 +150,9 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
             smooth = getattr(self.cfg.LOSS, "SMOOTH", 1.0)
             nclass = self.cfg.MODEL.N_CLASSES
             self.loss = SoftclDiceLoss(iter_=iter_, smooth=smooth, num_classes=nclass) 
+        #elif self.cfg.LOSS.TYPE.upper() == "MSE":
+            # torch.nn.MSELoss fait la moyenne voxel à voxel
+            #self.loss = nn.MSELoss(reduction='mean')
         super().define_metrics()
 
 
