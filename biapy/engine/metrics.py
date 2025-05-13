@@ -510,7 +510,7 @@ class SoftclDiceLoss(_Loss):
         #y_true : indice 
 
         #1) logits → probabilités
-        C_pred = y_pred.size(1)
+        C_pred = y_true.size(1)
         print(f"[DEBUG] C_pred = {C_pred}")
         prob = F.softmax(y_pred, dim=1)
         # if C_pred == 1 :
@@ -535,13 +535,13 @@ class SoftclDiceLoss(_Loss):
 
         
         # A detag one-hot + permutation 
-        # if C_pred == 1 :
+        if C_pred == 1 :
         # #binaire : on empile mannuellement background et foreground
-        #     mask_bg = (y_true==0).long()
-        #     mask_fg = (y_true==1).long()
-        #     y_true_oh = torch.stack([mask_bg,mask_fg], dim=1).float()
-        # else : 
-        #     y_true_oh = F.one_hot(y_true, num_classes=self.num_classes).float().movedim(-1,1)
+             mask_bg = (y_true==0).long()
+             mask_fg = (y_true==1).long()
+             y_true_oh = torch.stack([mask_bg,mask_fg], dim=1).float()
+        else : 
+             y_true_oh = F.one_hot(y_true, num_classes=self.num_classes).float().movedim(-1,1)
         
         #y_true_oh = y_true_oh.permute(0, 3, 1, 2).float() [B,C,H,W]
         #on devrait avoir deux canaux : foreground et bakground ? 
