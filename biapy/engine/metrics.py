@@ -524,8 +524,8 @@ class SoftclDiceLoss(_Loss):
         #     C=C_pred
 
         # 2) indices → one-hot
-        print("y_pred:", y_pred, "type:", type(y_pred))
-        print("y_true:", y_true, "type:", type(y_true))
+        print("y_pred type:", type(y_pred))
+        print("y_true type:", type(y_true))
         if y_true.dim() == prob.dim():
             y_true = y_true.squeeze(1)
         C_pred = y_true.size(1)
