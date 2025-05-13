@@ -511,7 +511,7 @@ class SoftclDiceLoss(_Loss):
 
         #1) logits → probabilités
         C_pred = y_pred.size(1)
-        #print(f"[DEBUG] C_pred = {C_pred}")
+        print(f"[DEBUG] C_pred = {C_pred}")
         prob = F.softmax(y_pred, dim=1)
         # if C_pred == 1 :
         #     #segmentation binaire : 
