@@ -10,14 +10,14 @@ PROBLEM:
 DATA: 
     PATCH_SIZE: (32, 128, 128, 3)
     TRAIN:                                                                                                              
-        PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_2C/train/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_2C/train/label
+        PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/train/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/train/label
         IN_MEMORY: True
     VAL:
         SPLIT_TRAIN: 0.1
     TEST:                                                                                                               
-        PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_2C/test/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_2C/test/label
+        PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/test/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/test/label
         IN_MEMORY: True
         LOAD_GT: True
         PADDING: (4,16,16)
