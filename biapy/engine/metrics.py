@@ -510,10 +510,13 @@ class SoftclDiceLoss(_Loss):
         #y_true : indice 
 
         #1) logits → probabilités
-        C_pred = y_pred.size(1) #les prediction : on a 1 oui c'est la classe ( problème pour monai donc à modifier dans semantic_seg N_classes)
+        C_pred = y_pred.size(1) #les prediction : c'est le num classe ( à modifier dans semantic_seg N_classes pour qu'il soit à 2 et non plus à 1)
         print(f"[DEBUG] C_pred = {C_pred}")
+        
+        print(y_pred.dim())
 
         prob = F.softmax(y_pred, dim=1)
+        print(prob.dim())
         # if C_pred == 1 :
         #     #segmentation binaire : 
         #     p_fg = torch.sigmoid(y_pred) #foreground
