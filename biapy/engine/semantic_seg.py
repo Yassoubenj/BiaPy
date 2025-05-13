@@ -77,8 +77,8 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         """
         self.model_output_channels = {
             "type": "mask",
-            "channels": [self.cfg.MODEL.N_CLASSES],
-            #"channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES], # on doit avoir deux canal pour utiliser cldice de monai
+            #"channels": [self.cfg.MODEL.N_CLASSES],
+            "channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES], # on doit avoir deux canal pour utiliser cldice de monai
         }
         self.multihead = False
         self.activations = [{":": "CE_Sigmoid"}]
