@@ -469,10 +469,10 @@ class SoftClDiceLoss(torch.nn.Module):
         y_true : (B,1,…) ou (B,C,…).  
         y_pred : (B,1,…) ou (B,C,…).
         """
-        # Activation -----------------------------------------------------------------
+        # Activation de la prediction ---------------------------
         if self.from_logits:
-            print(y_pred.shape[1])
-            if y_pred.shape[1] == 1:           # binaire
+            print(y_pred.shape[1]) #la normalement ça rend 1
+            if y_pred.shape[1] == 1:           # binaire c'est notre cas ( même si n_classe = 2)
                 y_pred = torch.sigmoid(y_pred)
             else:                              # multi-classe
                 y_pred = F.softmax(y_pred, dim=1)
@@ -486,13 +486,12 @@ class SoftClDiceLoss(torch.nn.Module):
             y_true = F.one_hot(y_true.squeeze(1).long(), num_classes=y_pred.shape[1]
                             ).permute(0,4,1,2,3).float()
 
-        # Si y_pred n’a qu’un canal, crée un « canal background » (1-p)
+        # Si y_pred n’a qu’un canal, crée un « canal background » (1-p) qu'on va ignorer après on se concentre sur foreground 
         if y_pred.shape[1] == 1:
             y_pred = torch.cat([1 - y_pred, y_pred], dim=1)
             y_true = torch.cat([1 - y_true, y_true], dim=1)
 
-        C = y_pred.shape[1]
-        print(C)          # nb de classes (≥2 désormais)
+        C = y_pred.shape[1] # nb de classes (≥2 désormais)
         losses = []
 
         for c in range(1, C):        # on ignore explicitement le background (c=0)
