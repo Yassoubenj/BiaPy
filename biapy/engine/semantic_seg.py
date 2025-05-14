@@ -14,7 +14,7 @@ from biapy.engine.metrics import (
     CrossEntropyLoss_wrapper,
     DiceBCELoss,
     DiceLoss,
-    SoftclDiceLoss,
+    SoftClDiceLoss,
     )
 from biapy.data.dataset import PatchCoords
 
@@ -77,8 +77,8 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         """
         self.model_output_channels = {
             "type": "mask",
-            "channels": [self.cfg.MODEL.N_CLASSES],
-            #"channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES], # on doit avoir deux canal pour utiliser cldice de monai
+            #"channels": [self.cfg.MODEL.N_CLASSES],
+            "channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES], # on doit avoir deux canal pour utiliser cldice de monai
         }
         self.multihead = False
         self.activations = [{":": "CE_Sigmoid"}]
@@ -149,7 +149,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
             iter_  = getattr(self.cfg.LOSS, "ITER", 3)
             smooth = getattr(self.cfg.LOSS, "SMOOTH", 1.0)
             nclass = self.cfg.MODEL.N_CLASSES
-            self.loss = SoftclDiceLoss(iter_=iter_, smooth=smooth, num_classes=nclass) 
+            self.loss = SoftClDiceLoss(iter_=iter_, smooth=smooth, from_logits=True) 
         #elif self.cfg.LOSS.TYPE.upper() == "MSE":
             # torch.nn.MSELoss fait la moyenne voxel à voxel
             #self.loss = nn.MSELoss(reduction='mean')

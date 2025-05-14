@@ -427,147 +427,229 @@ class DiceLoss(nn.Module):
 # limitations under the License.
 
 
-def soft_erode(img: torch.Tensor) -> torch.Tensor:
-    """
-    Perform soft erosion on the input image
-    Adapted from:
-    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L6
-    """
-    if img.dim() == 4:
-        p1 = -(F.max_pool2d(-img, (3, 1), (1, 1), (1, 0)))
-        p2 = -(F.max_pool2d(-img, (1, 3), (1, 1), (0, 1)))
-        return torch.min(p1, p2)
-    elif img.dim() == 5:
-        p1 = -(F.max_pool3d(-img, (3, 1, 1), (1, 1, 1), (1, 0, 0)))
-        p2 = -(F.max_pool3d(-img, (1, 3, 1), (1, 1, 1), (0, 1, 0)))
-        p3 = -(F.max_pool3d(-img, (1, 1, 3), (1, 1, 1), (0, 0, 1)))
-        return torch.min(torch.min(p1, p2), p3)
+def _soft_erode(x):
+    """Soft morphological erosion (2D ou 3D)."""
+    ndim = x.dim() - 2 # 2 => 2D, 3 => 3D
+    pool = F.nn.max_pool2d if ndim == 2 else F.nn.max_pool3d
+    # deux erosions anisotropes puis min :
+    if ndim == 2: # (H,W)
+        k1, k2 = (3, 1), (1, 3)
+    else: # (D,H,W)
+        k1, k2 = (3, 1, 1), (1, 3, 3)
+    p1 = -pool(-x, k1, stride=1, padding=[k//2 for k in k1])
+    p2 = -pool(-x, k2, stride=1, padding=[k//2 for k in k2])
+    return torch.minimum(p1, p2)
 
-
-def soft_dilate(img: torch.Tensor) -> torch.Tensor:
-    """
-    Perform soft dilation on the input image
-    Adapted from:
-    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L18
-    """
-    if img.dim() == 4:
-        return F.max_pool2d(img, (3, 3), (1, 1), (1, 1))
-    elif img.dim() == 5:
-        return F.max_pool3d(img, (3, 3, 3), (1, 1, 1), (1, 1, 1))
-
-
-def soft_open(img: torch.Tensor) -> torch.Tensor:
-    """
-    Wrapper function to perform soft opening on the input image
-    """
-    return soft_dilate(soft_erode(img))
-
-
-def soft_skel(img: torch.Tensor, iter_: int) -> torch.Tensor:
-    """
-    Perform soft skeletonization on the input image
-    Adapted from:
-    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L29
-    """
-    img1 = soft_open(img)
-    skel = F.relu(img - img1)
-    for _ in range(iter_):
-        img = soft_erode(img)
-        img1 = soft_open(img)
-        delta = F.relu(img - img1)
-        skel = skel + F.relu(delta - skel * delta)
+def _soft_skel(x, iter_=3):
+    """Approximation différentiable du squelette."""
+    skel = torch.zeros_like(x)
+    for _ in range(it):
+        eroded = _soft_erode(x)
+        opened = F.max_pool3d(eroded, 3, 1, 1) if x.ndim == 5 else \
+                 F.max_pool2d(eroded, 3, 1, 1)
+        skel = skel + F.relu(opened - eroded)
+        x = eroded
     return skel
 
-
-def soft_dice(y_true: torch.Tensor, y_pred: torch.Tensor, smooth: float = 1.0) -> torch.Tensor:
+class SoftClDiceLoss(torch.nn.Module):
     """
-    Function to compute soft dice loss
-    Adapted from:
-    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/cldice.py#L22
+    • Accepte : y_pred logits ou probas de shape (B, C, …).
+    • Tolère C = 1 (binaire) ou >1 (multiclasses).
+    • from_logits : appliquer sigmoïde/softmax interne si True.
     """
-    intersection = torch.sum((y_true * y_pred)[:, 1:, ...])
-    coeff = (2.0 * intersection + smooth) / (
-        torch.sum(y_true[:, 1:, ...]) + torch.sum(y_pred[:, 1:, ...]) + smooth
-    )
-    return 1.0 - coeff
-
-
-
-class SoftclDiceLoss(_Loss):
-    def __init__(
-        self,
-        iter_: int = 3,
-        smooth: float = 1.0,
-        num_classes: int | None = None,
-    ) -> None:
+    def __init__(self, iter_: int = 3, smooth: float = 1.,
+                from_logits: bool = True):
         super().__init__()
-        self.iter = iter_
+        self.iter_ = iter_
         self.smooth = smooth
-        self.num_classes = num_classes  
-        
+        self.from_logits = from_logits
+
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        #y_pred : logit 
-        #y_true : indice 
+        """
+        y_true : (B,1,…) ou (B,C,…).  
+        y_pred : (B,1,…) ou (B,C,…).
+        """
+        # Activation -----------------------------------------------------------------
+        if self.from_logits:
+            if y_pred.shape[1] == 1:           # binaire
+                y_pred = torch.sigmoid(y_pred)
+            else:                              # multi-classe
+                y_pred = F.softmax(y_pred, dim=1)
 
-        #1) logits → probabilités
-        C_pred = y_pred.size(1) #les prediction : c'est le num classe ( à modifier dans semantic_seg N_classes pour qu'il soit à 2 et non plus à 1)
-        print(f"[DEBUG] C_pred = {C_pred}")
+        # Harmonise GT ---------------------------------------------------------------
+        if y_true.dtype != torch.float32:
+            y_true = y_true.float()
+
+        if y_true.shape[1] == 1 and y_pred.shape[1] > 1:
+            # one-hot GT si sortie multi-classe
+            y_true = F.one_hot(y_true.squeeze(1).long(), num_classes=y_pred.shape[1]
+                            ).permute(0,4,1,2,3).float()
+
+        # Si y_pred n’a qu’un canal, crée un « canal background » (1-p)
+        if y_pred.shape[1] == 1:
+            y_pred = torch.cat([1 - y_pred, y_pred], dim=1)
+            y_true = torch.cat([1 - y_true, y_true], dim=1)
+
+        C = y_pred.shape[1]
+        print(C)          # nb de classes (≥2 désormais)
+        losses = []
+
+        for c in range(1, C):        # on ignore explicitement le background (c=0)
+            p, t = y_pred[:, c], y_true[:, c]
+
+            sk_p, sk_t = _soft_skel(p, self.iter_), _soft_skel(t, self.iter_)
+
+            tprec = (torch.sum(sk_p * t) + self.smooth) / \
+                    (torch.sum(sk_p) + self.smooth)
+            tsens = (torch.sum(sk_t * p) + self.smooth) / \
+                    (torch.sum(sk_t) + self.smooth)
+
+            cl = (2.0 * tprec * tsens) / (tprec + tsens + 1e-7)
+            losses.append(1.0 - cl)
+
+        return torch.mean(torch.stack(losses))
+
+# def soft_erode(img: torch.Tensor) -> torch.Tensor:
+#     """
+#     Perform soft erosion on the input image
+#     Adapted from:
+#     https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L6
+#     """
+#     if img.dim() == 4:
+#         p1 = -(F.max_pool2d(-img, (3, 1), (1, 1), (1, 0)))
+#         p2 = -(F.max_pool2d(-img, (1, 3), (1, 1), (0, 1)))
+#         return torch.min(p1, p2)
+#     elif img.dim() == 5:
+#         p1 = -(F.max_pool3d(-img, (3, 1, 1), (1, 1, 1), (1, 0, 0)))
+#         p2 = -(F.max_pool3d(-img, (1, 3, 1), (1, 1, 1), (0, 1, 0)))
+#         p3 = -(F.max_pool3d(-img, (1, 1, 3), (1, 1, 1), (0, 0, 1)))
+#         return torch.min(torch.min(p1, p2), p3)
+
+
+# def soft_dilate(img: torch.Tensor) -> torch.Tensor:
+#     """
+#     Perform soft dilation on the input image
+#     Adapted from:
+#     https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L18
+#     """
+#     if img.dim() == 4:
+#         return F.max_pool2d(img, (3, 3), (1, 1), (1, 1))
+#     elif img.dim() == 5:
+#         return F.max_pool3d(img, (3, 3, 3), (1, 1, 1), (1, 1, 1))
+
+
+# def soft_open(img: torch.Tensor) -> torch.Tensor:
+#     """
+#     Wrapper function to perform soft opening on the input image
+#     """
+#     return soft_dilate(soft_erode(img))
+
+
+# def soft_skel(img: torch.Tensor, iter_: int) -> torch.Tensor:
+#     """
+#     Perform soft skeletonization on the input image
+#     Adapted from:
+#     https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L29
+#     """
+#     img1 = soft_open(img)
+#     skel = F.relu(img - img1)
+#     for _ in range(iter_):
+#         img = soft_erode(img)
+#         img1 = soft_open(img)
+#         delta = F.relu(img - img1)
+#         skel = skel + F.relu(delta - skel * delta)
+#     return skel
+
+
+# def soft_dice(y_true: torch.Tensor, y_pred: torch.Tensor, smooth: float = 1.0) -> torch.Tensor:
+#     """
+#     Function to compute soft dice loss
+#     Adapted from:
+#     https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/cldice.py#L22
+#     """
+#     intersection = torch.sum((y_true * y_pred)[:, 1:, ...])
+#     coeff = (2.0 * intersection + smooth) / (
+#         torch.sum(y_true[:, 1:, ...]) + torch.sum(y_pred[:, 1:, ...]) + smooth
+#     )
+#     return 1.0 - coeff
+
+
+
+# class SoftclDiceLoss(_Loss):
+#     def __init__(
+#         self,
+#         iter_: int = 3,
+#         smooth: float = 1.0,
+#         num_classes: int | None = None,
+#     ) -> None:
+#         super().__init__()
+#         self.iter = iter_
+#         self.smooth = smooth
+#         self.num_classes = num_classes  
         
-        print(y_pred.dim())
+#     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+#         #y_pred : logit 
+#         #y_true : indice 
 
-        prob = F.softmax(y_pred, dim=1)
-        print(prob.dim())
-        # if C_pred == 1 :
-        #     #segmentation binaire : 
-        #     p_fg = torch.sigmoid(y_pred) #foreground
-        #     p_bg = 1.0 - p_fg #background
-        #     prob = torch.cat([p_bg,p_fg], dim=1)
-        #     #C=2
-        # else :
-        #     prob = F.softmax(y_pred, dim=1)
-        #     C=C_pred
+#         #1) logits → probabilités
+#         C_pred = y_pred.size(1) #les prediction : c'est le num classe ( à modifier dans semantic_seg N_classes pour qu'il soit à 2 et non plus à 1)
+#         print(f"[DEBUG] C_pred = {C_pred}")
+#         y_true = y_true.squeeze(1)
+#         print(y_pred.dim())
 
-        # 2) indices → one-hot
-        print("y_pred type:", type(y_pred), y_pred.shape)
-        print("y_true type:", type(y_true), y_true.shape)
-        if y_true.dim() == prob.dim():
-            y_true = y_true.squeeze(1)
+#         prob = F.softmax(y_pred, dim=1)
+#         print(prob.dim())
+#         # if C_pred == 1 :
+#         #     #segmentation binaire : 
+#         #     p_fg = torch.sigmoid(y_pred) #foreground
+#         #     p_bg = 1.0 - p_fg #background
+#         #     prob = torch.cat([p_bg,p_fg], dim=1)
+#         #     #C=2
+#         # else :
+#         #     prob = F.softmax(y_pred, dim=1)
+#         #     C=C_pred
 
-        C_pred = y_true.size(1)
-        print(f"[DEBUG] C_pred = {C_pred}")
-        y_true = y_true.long()
-        y_true_oh = F.one_hot(y_true, num_classes=1).float().movedim(-1,1) 
+#         # 2) indices → one-hot
+#         print("y_pred type:", type(y_pred), y_pred.shape)
+#         print("y_true type:", type(y_true), y_true.shape)
+#         if y_true.dim() == prob.dim():
+#             y_true = y_true.squeeze(1)
 
-        # if y_true.dim() == 4 and y_true.size(1) == 1:
-        #     y_true = y_true.squeeze(1)
+#         C_pred = y_true.size(1)
+#         print(f"[DEBUG] C_pred = {C_pred}")
+#         y_true = y_true.long()
+#         y_true_oh = F.one_hot(y_true, num_classes=1).float().movedim(-1,1) 
+
+#         # if y_true.dim() == 4 and y_true.size(1) == 1:
+#         #     y_true = y_true.squeeze(1)
 
         
-        # A detag one-hot + permutation 
-        # if C_pred == 1 :
-        # # #binaire : on empile mannuellement background et foreground
-        #      mask_bg = (y_true==0).long()
-        #      mask_fg = (y_true==1).long()
-        #      y_true_oh = torch.stack([mask_bg,mask_fg], dim=1).float()
-        # else : 
-        #      y_true_oh = F.one_hot(y_true, num_classes=self.num_classes).float().movedim(-1,1)
+#         # A detag one-hot + permutation 
+#         # if C_pred == 1 :
+#         # # #binaire : on empile mannuellement background et foreground
+#         #      mask_bg = (y_true==0).long()
+#         #      mask_fg = (y_true==1).long()
+#         #      y_true_oh = torch.stack([mask_bg,mask_fg], dim=1).float()
+#         # else : 
+#         #      y_true_oh = F.one_hot(y_true, num_classes=self.num_classes).float().movedim(-1,1)
         
-        #y_true_oh = y_true_oh.permute(0, 3, 1, 2).float() [B,C,H,W]
-        #on devrait avoir deux canaux : foreground et bakground ? 
-        #dans monai on ignore background et on compare que foreground donc canal 1 
+#         #y_true_oh = y_true_oh.permute(0, 3, 1, 2).float() [B,C,H,W]
+#         #on devrait avoir deux canaux : foreground et bakground ? 
+#         #dans monai on ignore background et on compare que foreground donc canal 1 
 
-        # 3) on appelle le pipeline clDice original sur des tenseurs valides
-        skel_pred = soft_skel(prob, self.iter)
-        skel_true = soft_skel(y_true_oh, self.iter)
-        #mettre le canal 1 après
-        tprec = (
-            torch.sum(torch.multiply(skel_pred, y_true_oh)[:, 0:, ...]) + self.smooth
-        ) / (torch.sum(skel_pred[:, 0:, ...]) + self.smooth)
+#         # 3) on appelle le pipeline clDice original sur des tenseurs valides
+#         skel_pred = soft_skel(prob, self.iter)
+#         skel_true = soft_skel(y_true_oh, self.iter)
+#         #mettre le canal 1 après
+#         tprec = (
+#             torch.sum(torch.multiply(skel_pred, y_true_oh)[:, 0:, ...]) + self.smooth
+#         ) / (torch.sum(skel_pred[:, 0:, ...]) + self.smooth)
 
-        tsens = (
-            torch.sum(torch.multiply(skel_true, prob)[:, 0:, ...]) + self.smooth
-        ) / (torch.sum(skel_true[:, 0:, ...]) + self.smooth)
+#         tsens = (
+#             torch.sum(torch.multiply(skel_true, prob)[:, 0:, ...]) + self.smooth
+#         ) / (torch.sum(skel_true[:, 0:, ...]) + self.smooth)
 
-        return 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+#         return 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
 
 
 
