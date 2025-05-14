@@ -429,7 +429,7 @@ class DiceLoss(nn.Module):
 
 def _soft_erode(x: torch.Tensor) -> torch.Tensor:
     """Soft morphological erosion (2D ou 3D)."""
-    ndim = x.ndim() - 2 # 2 => 2D, 3 => 3D
+    ndim = x.ndim - 2 # 2 => 2D, 3 => 3D
     pool = F.max_pool2d if ndim == 2 else F.max_pool3d
     # deux erosions anisotropes puis min :
     if ndim == 2: # (H,W)
@@ -471,6 +471,7 @@ class SoftClDiceLoss(torch.nn.Module):
         """
         # Activation -----------------------------------------------------------------
         if self.from_logits:
+            print(y_pred.shape[1])
             if y_pred.shape[1] == 1:           # binaire
                 y_pred = torch.sigmoid(y_pred)
             else:                              # multi-classe
