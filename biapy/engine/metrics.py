@@ -427,10 +427,10 @@ class DiceLoss(nn.Module):
 # limitations under the License.
 
 
-def _soft_erode(x):
+def _soft_erode(x)
     """Soft morphological erosion (2D ou 3D)."""
-    ndim = x.dim() - 2 # 2 => 2D, 3 => 3D
-    pool = F.nn.max_pool2d if ndim == 2 else F.nn.max_pool3d
+    ndim = x.ndim() - 2 # 2 => 2D, 3 => 3D
+    pool = F.max_pool2d if ndim == 2 else F.max_pool3d
     # deux erosions anisotropes puis min :
     if ndim == 2: # (H,W)
         k1, k2 = (3, 1), (1, 3)
@@ -440,7 +440,7 @@ def _soft_erode(x):
     p2 = -pool(-x, k2, stride=1, padding=[k//2 for k in k2])
     return torch.minimum(p1, p2)
 
-def _soft_skel(x, iter_=3):
+def _soft_skel(x, it: int = 3):
     """Approximation différentiable du squelette."""
     skel = torch.zeros_like(x)
     for _ in range(it):
