@@ -77,8 +77,8 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         """
         self.model_output_channels = {
             "type": "mask",
-            "channels": [self.cfg.MODEL.N_CLASSES],
-            #"channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES], # on doit avoir deux canal pour utiliser cldice de monai
+            #"channels": [self.cfg.MODEL.N_CLASSES],
+            "channels": [1 if self.cfg.MODEL.N_CLASSES <= 2 else self.cfg.MODEL.N_CLASSES], # on doit avoir deux canal pour utiliser cldice de monai
         }
         self.multihead = False
         self.activations = [{":": "CE_Sigmoid"}]
@@ -351,7 +351,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
             Model prediction.
         """
         # Save simple binarization of predictions
-        if self.cfg.MODEL.N_CLASSES <= 2:
+        if self.cfg.MODEL.N_CLASSES <= 2: # Binarise les prédictions :  en gros si y_pred a une probabilité d'être dans le neuronnes > 0.5 met 1 ( donc blanc )
             pred = (pred > 0.5).astype(np.uint8)
         save_tif(
             pred,

@@ -415,6 +415,96 @@ class DiceLoss(nn.Module):
 
         return 1 - dice
     
+def soft_erode(img: torch.Tensor) -> torch.Tensor:
+    """
+    Perform soft erosion on the input image
+    Adapted from:
+    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L6
+    """
+    if img.dim() == 4:
+        p1 = -(F.max_pool2d(-img, (3, 1), (1, 1), (1, 0)))
+        p2 = -(F.max_pool2d(-img, (1, 3), (1, 1), (0, 1)))
+        return torch.min(p1, p2)
+    elif img.dim() == 5:
+        p1 = -(F.max_pool3d(-img, (3, 1, 1), (1, 1, 1), (1, 0, 0)))
+        p2 = -(F.max_pool3d(-img, (1, 3, 1), (1, 1, 1), (0, 1, 0)))
+        p3 = -(F.max_pool3d(-img, (1, 1, 3), (1, 1, 1), (0, 0, 1)))
+        return torch.min(torch.min(p1, p2), p3)
+
+
+def soft_dilate(img: torch.Tensor) -> torch.Tensor:
+    """
+    Perform soft dilation on the input image
+    Adapted from:
+    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L18
+    """
+    if img.dim() == 4:
+        return F.max_pool2d(img, (3, 3), (1, 1), (1, 1))
+    elif img.dim() == 5:
+        return F.max_pool3d(img, (3, 3, 3), (1, 1, 1), (1, 1, 1))
+
+
+def soft_open(img: torch.Tensor) -> torch.Tensor:
+    """
+    Wrapper function to perform soft opening on the input image
+    """
+    return soft_dilate(soft_erode(img))
+
+
+def soft_skel(img: torch.Tensor, iter_: int) -> torch.Tensor:
+    """
+    Perform soft skeletonization on the input image
+    Adapted from:
+    https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L29
+    """
+    img1 = soft_open(img)
+    skel = F.relu(img - img1)
+    for _ in range(iter_):
+        img = soft_erode(img)
+        img1 = soft_open(img)
+        delta = F.relu(img - img1)
+        skel = skel + F.relu(delta - skel * delta)
+    return skel
+    
+class SoftclDiceLoss(nn.Module):
+    """
+    Soft clDice loss adapted au style Biapy.
+
+    Args:
+        iter_ (int): nombre d'itérations pour la squelettisation.
+        smooth (float): paramètre de lissage.
+    """
+    def __init__(self, iter_: int = 3, smooth: float = 1.0):
+        super(SoftclDiceLoss, self).__init__()
+        self.iter = iter_
+        self.smooth = smooth
+
+    def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        # Appliquer la sigmoïde comme dans DiceLoss
+        inputs = F.sigmoid(inputs)
+
+        # Calcul des squelettes “soft”
+        skel_pred = soft_skel(inputs, self.iter)
+        skel_true = soft_skel(targets, self.iter)
+
+        # Aplatir tous les tenseurs
+        skel_pred_flat = skel_pred.view(-1)
+        skel_true_flat = skel_true.view(-1)
+        inputs_flat = inputs.view(-1)
+        targets_flat = targets.view(-1)
+
+        # Topological precision
+        tprec_num = (skel_pred_flat * targets_flat).sum()
+        tprec = (tprec_num + self.smooth) / (skel_pred_flat.sum() + self.smooth)
+
+        # Topological sensitivity
+        tsens_num = (skel_true_flat * inputs_flat).sum()
+        tsens = (tsens_num + self.smooth) / (skel_true_flat.sum() + self.smooth)
+
+        # clDice
+        cl_dice = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+        return cl_dice
+        
 # Copyright (c) MONAI Consortium
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -426,152 +516,92 @@ class DiceLoss(nn.Module):
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# #Cldice from scratch 
+# def _soft_erode(x: torch.Tensor) -> torch.Tensor:
+#     """Soft morphological erosion (2D ou 3D)."""
+#     ndim = x.ndim - 2 # 2 => 2D, 3 => 3D
+#     pool = F.max_pool2d if ndim == 2 else F.max_pool3d
+#     # deux erosions anisotropes puis min :
+#     if ndim == 2: # (H,W)
+#         k1, k2 = (3, 1), (1, 3)
+#     else: # (D,H,W)
+#         k1, k2 = (3, 1, 1), (1, 3, 3)
+#     p1 = -pool(-x, k1, stride=1, padding=[k//2 for k in k1])
+#     p2 = -pool(-x, k2, stride=1, padding=[k//2 for k in k2])
+#     return torch.minimum(p1, p2)
 
-def _soft_erode(x: torch.Tensor) -> torch.Tensor:
-    """Soft morphological erosion (2D ou 3D)."""
-    ndim = x.ndim - 2 # 2 => 2D, 3 => 3D
-    pool = F.max_pool2d if ndim == 2 else F.max_pool3d
-    # deux erosions anisotropes puis min :
-    if ndim == 2: # (H,W)
-        k1, k2 = (3, 1), (1, 3)
-    else: # (D,H,W)
-        k1, k2 = (3, 1, 1), (1, 3, 3)
-    p1 = -pool(-x, k1, stride=1, padding=[k//2 for k in k1])
-    p2 = -pool(-x, k2, stride=1, padding=[k//2 for k in k2])
-    return torch.minimum(p1, p2)
-
-def _soft_skel(x: torch.Tensor, it: int = 3) -> torch.Tensor:
-    """Approximation différentiable du squelette."""
-    skel = torch.zeros_like(x)
-    for _ in range(it):
-        eroded = _soft_erode(x)
-        opened = F.max_pool3d(eroded, 3, 1, 1) if x.ndim == 5 else \
-                 F.max_pool2d(eroded, 3, 1, 1)
-        skel = skel + F.relu(opened - eroded)
-        x = eroded
-    return skel
-
-class SoftClDiceLoss(torch.nn.Module):
-    """
-    • Accepte : y_pred logits ou probas de shape (B, C, …).
-    • Tolère C = 1 (binaire) ou >1 (multiclasses).
-    • from_logits : appliquer sigmoïde/softmax interne si True.
-    """
-    def __init__(self, iter_: int = 3, smooth: float = 1.,
-                from_logits: bool = True):
-        super().__init__()
-        self.iter_ = iter_
-        self.smooth = smooth
-        self.from_logits = from_logits
-
-    def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        """
-        y_true : (B,1,…) ou (B,C,…).  
-        y_pred : (B,1,…) ou (B,C,…).
-        """
-        # Activation de la prediction ---------------------------
-        if self.from_logits:
-            print(y_pred.shape[1]) #la normalement ça rend 1
-            if y_pred.shape[1] == 1:           # binaire c'est notre cas ( même si n_classe = 2)
-                y_pred = torch.sigmoid(y_pred)
-            else:                              # multi-classe
-                y_pred = F.softmax(y_pred, dim=1)
-
-        # Harmonise GT ---------------------------------------------------------------
-        if y_true.dtype != torch.float32:
-            y_true = y_true.float()
-
-        if y_true.shape[1] == 1 and y_pred.shape[1] > 1:
-            # one-hot GT si sortie multi-classe
-            y_true = F.one_hot(y_true.squeeze(1).long(), num_classes=y_pred.shape[1]
-                            ).permute(0,4,1,2,3).float()
-
-        # Si y_pred n’a qu’un canal, crée un « canal background » (1-p) qu'on va ignorer après on se concentre sur foreground 
-        if y_pred.shape[1] == 1:
-            y_pred = torch.cat([1 - y_pred, y_pred], dim=1)
-            y_true = torch.cat([1 - y_true, y_true], dim=1)
-
-        C = y_pred.shape[1] # nb de classes (≥2 désormais)
-        losses = []
-
-        for c in range(1, C):        # on ignore explicitement le background (c=0)
-            p, t = y_pred[:, c], y_true[:, c]
-
-            sk_p, sk_t = _soft_skel(p, self.iter_), _soft_skel(t, self.iter_)
-
-            tprec = (torch.sum(sk_p * t) + self.smooth) / \
-                    (torch.sum(sk_p) + self.smooth)
-            tsens = (torch.sum(sk_t * p) + self.smooth) / \
-                    (torch.sum(sk_t) + self.smooth)
-
-            cl = (2.0 * tprec * tsens) / (tprec + tsens + 1e-7)
-            losses.append(1.0 - cl)
-
-        return torch.mean(torch.stack(losses))
-
-# def soft_erode(img: torch.Tensor) -> torch.Tensor:
-#     """
-#     Perform soft erosion on the input image
-#     Adapted from:
-#     https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L6
-#     """
-#     if img.dim() == 4:
-#         p1 = -(F.max_pool2d(-img, (3, 1), (1, 1), (1, 0)))
-#         p2 = -(F.max_pool2d(-img, (1, 3), (1, 1), (0, 1)))
-#         return torch.min(p1, p2)
-#     elif img.dim() == 5:
-#         p1 = -(F.max_pool3d(-img, (3, 1, 1), (1, 1, 1), (1, 0, 0)))
-#         p2 = -(F.max_pool3d(-img, (1, 3, 1), (1, 1, 1), (0, 1, 0)))
-#         p3 = -(F.max_pool3d(-img, (1, 1, 3), (1, 1, 1), (0, 0, 1)))
-#         return torch.min(torch.min(p1, p2), p3)
-
-
-# def soft_dilate(img: torch.Tensor) -> torch.Tensor:
-#     """
-#     Perform soft dilation on the input image
-#     Adapted from:
-#     https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L18
-#     """
-#     if img.dim() == 4:
-#         return F.max_pool2d(img, (3, 3), (1, 1), (1, 1))
-#     elif img.dim() == 5:
-#         return F.max_pool3d(img, (3, 3, 3), (1, 1, 1), (1, 1, 1))
-
-
-# def soft_open(img: torch.Tensor) -> torch.Tensor:
-#     """
-#     Wrapper function to perform soft opening on the input image
-#     """
-#     return soft_dilate(soft_erode(img))
-
-
-# def soft_skel(img: torch.Tensor, iter_: int) -> torch.Tensor:
-#     """
-#     Perform soft skeletonization on the input image
-#     Adapted from:
-#     https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/soft_skeleton.py#L29
-#     """
-#     img1 = soft_open(img)
-#     skel = F.relu(img - img1)
-#     for _ in range(iter_):
-#         img = soft_erode(img)
-#         img1 = soft_open(img)
-#         delta = F.relu(img - img1)
-#         skel = skel + F.relu(delta - skel * delta)
+# def _soft_skel(x: torch.Tensor, it: int = 3) -> torch.Tensor:
+#     """Approximation différentiable du squelette."""
+#     skel = torch.zeros_like(x)
+#     for _ in range(it):
+#         eroded = _soft_erode(x)
+#         opened = F.max_pool3d(eroded, 3, 1, 1) if x.ndim == 5 else \
+#                  F.max_pool2d(eroded, 3, 1, 1)
+#         skel = skel + F.relu(opened - eroded)
+#         x = eroded
 #     return skel
 
+# class SoftClDiceLoss(torch.nn.Module):
+#     """
+#     • Accepte : y_pred logits ou probas de shape (B, C, …).
+#     • Tolère C = 1 (binaire) ou >1 (multiclasses).
+#     • from_logits : appliquer sigmoïde/softmax interne si True.
+#     """
+#     def __init__(self, iter_: int = 3, smooth: float = 1.,
+#                 from_logits: bool = True):
+#         super().__init__()
+#         self.iter_ = iter_
+#         self.smooth = smooth
+#         self.from_logits = from_logits
 
-# def soft_dice(y_true: torch.Tensor, y_pred: torch.Tensor, smooth: float = 1.0) -> torch.Tensor:
-#     """
-#     Function to compute soft dice loss
-#     Adapted from:
-#     https://github.com/jocpae/clDice/blob/master/cldice_loss/pytorch/cldice.py#L22
-#     """
-#     intersection = torch.sum((y_true * y_pred)[:, 1:, ...])
-#     coeff = (2.0 * intersection + smooth) / (
-#         torch.sum(y_true[:, 1:, ...]) + torch.sum(y_pred[:, 1:, ...]) + smooth
-#     )
-#     return 1.0 - coeff
+#     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+#         """
+#         y_true : (B,1,…) ou (B,C,…).  
+#         y_pred : (B,1,…) ou (B,C,…).
+#         """
+#         # Activation de la prediction ---------------------------
+#         if self.from_logits:
+#             print(y_pred.shape[1]) #la normalement ça rend 1
+#             if y_pred.shape[1] == 1:           # binaire c'est notre cas ( même si n_classe = 2)
+#                 y_pred = torch.sigmoid(y_pred)
+#             else:                              # multi-classe
+#                 y_pred = F.softmax(y_pred, dim=1)
+
+#         # Harmonise GT ---------------------------------------------------------------
+#         if y_true.dtype != torch.float32:
+#             y_true = y_true.float()
+
+#         if y_true.shape[1] == 1 and y_pred.shape[1] > 1:
+#             # one-hot GT si sortie multi-classe
+#             y_true = F.one_hot(y_true.squeeze(1).long(), num_classes=y_pred.shape[1]
+#                             ).permute(0,4,1,2,3).float()
+
+#         # Si y_pred n’a qu’un canal, crée un « canal background » (1-p) qu'on va ignorer après on se concentre sur foreground 
+#         if y_pred.shape[1] == 1:
+#             y_pred = torch.cat([1 - y_pred, y_pred], dim=1)
+#             y_true = torch.cat([1 - y_true, y_true], dim=1)
+
+#         C = y_pred.shape[1] # nb de classes (≥2 désormais)
+#         losses = []
+
+#         for c in range(1, C):        # on ignore explicitement le background (c=0)
+#             p, t = y_pred[:, c], y_true[:, c]
+
+#             sk_p, sk_t = _soft_skel(p, self.iter_), _soft_skel(t, self.iter_)
+
+#             tprec = (torch.sum(sk_p * t) + self.smooth) / \
+#                     (torch.sum(sk_p) + self.smooth)
+#             tsens = (torch.sum(sk_t * p) + self.smooth) / \
+#                     (torch.sum(sk_t) + self.smooth)
+
+#             cl = (2.0 * tprec * tsens) / (tprec + tsens + 1e-7)
+#             losses.append(1.0 - cl)
+
+#         return torch.mean(torch.stack(losses))
+
+
+#CLDICE FROM MONAI 
+
 
 
 
