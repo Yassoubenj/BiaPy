@@ -427,7 +427,7 @@ class DiceLoss(nn.Module):
 # limitations under the License.
 
 
-def _soft_erode(x)
+def _soft_erode(x):
     """Soft morphological erosion (2D ou 3D)."""
     ndim = x.ndim() - 2 # 2 => 2D, 3 => 3D
     pool = F.max_pool2d if ndim == 2 else F.max_pool3d
