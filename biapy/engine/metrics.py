@@ -481,19 +481,9 @@ class SoftclDiceLoss(nn.Module):
         self._printed=False
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        if not self._printed:
-            print(f"[SoftclDice DEBUG] logits dtype={inputs.dtype}, min={inputs.min().item():.4f}, max={inputs.max().item():.4f}")
-            probs = torch.sigmoid(inputs)
-            print(f"[SoftclDice DEBUG]   → after sigmoid: dtype={probs.dtype}, min={probs.min().item():.4f}, max={probs.max().item():.4f}")
-            print(f"[SoftclDice DEBUG] targets before cast: dtype={targets.dtype}, min={targets.min().item()}, max={targets.max().item()}")
-            targets = targets.float()
-            print(f"[SoftclDice DEBUG]   → targets after cast: dtype={targets.dtype}, min={targets.min().item()}, max={targets.max().item()}")
-            self._printed = True
         # Appliquer la sigmoïde comme dans DiceLoss
         inputs = F.sigmoid(inputs) 
-        targets = targets.float#on prend nos images 3C et on renvoie nos logits
     
-       
         # Calcul des squelettes “soft”
         skel_pred = soft_skel(inputs, self.iter)
         skel_true = soft_skel(targets, self.iter)
@@ -799,6 +789,53 @@ class DiceBCELoss(nn.Module):
         Dice_BCE = (BCE * self.w_bce) + (dice_loss * self.w_dice)
 
         return Dice_BCE
+class SoftclDiceBCELoss(nn.Module):
+    """
+    Combines Binary Cross-Entropy and Soft clDice loss for
+    binary segmentation (1 canal).
+
+    Args:
+        w_cldice (float): poids du terme clDice.
+        w_bce    (float): poids du terme BCE.
+        iter_    (int):   nombre d’itérations pour soft_skel().
+        smooth   (float): paramètre de lissage.
+    """
+    def __init__(self, w_cldice: float = 0.5, w_bce: float = 0.5,
+                iter_: int = 3, smooth: float = 1.0):
+        super(SoftclDiceBCELoss, self).__init__()
+        self.w_cldice = w_cldice
+        self.w_bce    = w_bce
+        self.iter     = iter_
+        self.smooth   = smooth
+
+    def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        # inputs: logits non bornés → proba [0,1]
+        inputs = F.sigmoid(inputs)
+
+        # aplatir pour le BCE
+        inputs_flat  = inputs.view(-1)
+        targets_flat = targets.view(-1)
+
+        # 1) BCE
+        bce = F.binary_cross_entropy(inputs_flat, targets_flat, reduction="mean")
+
+        # 2) Soft clDice
+        skel_pred     = soft_skel(inputs, self.iter)
+        skel_true     = soft_skel(targets, self.iter)
+        pred_flat_s   = skel_pred.view(-1)
+        true_flat_s   = skel_true.view(-1)
+
+        tprec_num = (pred_flat_s * targets_flat).sum()
+        tprec     = (tprec_num + self.smooth) / (pred_flat_s.sum() + self.smooth)
+
+        tsens_num = (true_flat_s * inputs_flat).sum()
+        tsens     = (tsens_num + self.smooth) / (true_flat_s.sum() + self.smooth)
+
+        cldice_loss = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+
+        # 3) combinaison
+        loss = self.w_bce * bce + self.w_cldice * cldice_loss
+        return loss
 
 
 class instance_segmentation_loss:
