@@ -481,8 +481,8 @@ class SoftclDiceLoss(nn.Module):
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         # Appliquer la sigmoïde comme dans DiceLoss
-        #inputs = F.sigmoid(inputs)
-
+        inputs = F.sigmoid(inputs) #on prend nos images 3C et on renvoie nos logits
+       
         # Calcul des squelettes “soft”
         skel_pred = soft_skel(inputs, self.iter)
         skel_true = soft_skel(targets, self.iter)
