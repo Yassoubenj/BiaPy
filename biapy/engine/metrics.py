@@ -395,7 +395,7 @@ class CrossEntropyLoss_wrapper:
         return loss
 
 
-class DiceLoss(nn.Module):
+class DiceLoss(nn.Module): #mais à quoi correspond ces target dans biapy ? a quoi correspond les input : des logit donc on fait sigmoid et pour target on fait rien ? 
     """
     Based on `Kaggle <https://www.kaggle.com/code/bigironsphere/loss-function-library-keras-pytorch>`_.
     """
@@ -410,7 +410,7 @@ class DiceLoss(nn.Module):
         inputs = inputs.view(-1)
         targets = targets.view(-1)
 
-        intersection = (inputs * targets).sum()
+        intersection = (inputs * targets).sum() #dans monai il fait un slicing ici 
         dice = (2.0 * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
 
         return 1 - dice
@@ -481,7 +481,7 @@ class SoftclDiceLoss(nn.Module):
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         # Appliquer la sigmoïde comme dans DiceLoss
-        inputs = F.sigmoid(inputs)
+        #inputs = F.sigmoid(inputs)
 
         # Calcul des squelettes “soft”
         skel_pred = soft_skel(inputs, self.iter)
