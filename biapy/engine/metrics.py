@@ -478,10 +478,21 @@ class SoftclDiceLoss(nn.Module):
         super(SoftclDiceLoss, self).__init__()
         self.iter = iter_
         self.smooth = smooth
+        self.printed=False
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        if not self._printed:
+            print(f"[SoftclDice DEBUG] logits dtype={inputs.dtype}, min={inputs.min().item():.4f}, max={inputs.max().item():.4f}")
+            probs = torch.sigmoid(inputs)
+            print(f"[SoftclDice DEBUG]   → after sigmoid: dtype={probs.dtype}, min={probs.min().item():.4f}, max={probs.max().item():.4f}")
+            print(f"[SoftclDice DEBUG] targets before cast: dtype={targets.dtype}, min={targets.min().item()}, max={targets.max().item()}")
+            targets = targets.float()
+            print(f"[SoftclDice DEBUG]   → targets after cast: dtype={targets.dtype}, min={targets.min().item()}, max={targets.max().item()}")
+            self._printed = True
         # Appliquer la sigmoïde comme dans DiceLoss
-        inputs = F.sigmoid(inputs) #on prend nos images 3C et on renvoie nos logits
+        inputs = F.sigmoid(inputs) 
+        targets = targets.float#on prend nos images 3C et on renvoie nos logits
+    
        
         # Calcul des squelettes “soft”
         skel_pred = soft_skel(inputs, self.iter)
