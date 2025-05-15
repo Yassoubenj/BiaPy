@@ -478,7 +478,7 @@ class SoftclDiceLoss(nn.Module):
         super(SoftclDiceLoss, self).__init__()
         self.iter = iter_
         self.smooth = smooth
-        self.printed=False
+        self._printed=False
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         if not self._printed:
