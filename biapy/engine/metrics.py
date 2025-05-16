@@ -851,8 +851,8 @@ class SoftclDiceFocalLoss(nn.Module):
     """
     def __init__(
         self,
-        w_focal: float = 0.5,
-        w_cldice: float = 0.5,
+        w_focal: float = 1.0,
+        w_cldice: float = 0.0,
         iter_: int = 3,
         smooth: float = 1.0,
         gamma: float = 5.0,
