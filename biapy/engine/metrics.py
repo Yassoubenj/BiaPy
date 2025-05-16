@@ -856,7 +856,7 @@ class SoftclDiceFocalLoss(nn.Module):
         iter_: int = 3,
         smooth: float = 1.0,
         gamma: float = 2.0,
-        alpha: float = 0.9,
+        #alpha: float = 0.9,
     ):
         super(SoftclDiceFocalLoss, self).__init__()
         self.w_focal  = w_focal
@@ -864,9 +864,9 @@ class SoftclDiceFocalLoss(nn.Module):
         self.iter     = iter_
         self.smooth   = smooth
         self.gamma    = gamma
-        self.alpha    = alpha
+        #self.alpha    = alpha
 
-    def _sigmoid_focal(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    def _sigmoid_focal(self, logits: torch.Tensor, targets: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
         """
         Implementation de la Focal Loss binaire sur logits (non bornés).
         """
@@ -874,12 +874,16 @@ class SoftclDiceFocalLoss(nn.Module):
         bce_loss = logits - logits * targets - F.logsigmoid(logits)
         # invprobs = log σ(−z) si target=1, log σ(z) si target=0
         invprobs = F.logsigmoid(-logits * (targets * 2 - 1))
-        loss = (invprobs * self.gamma).exp() * bce_loss
-        if self.alpha is not None:
-            # alpha si target=1, (1−alpha) si target=0
-            alpha_factor = targets * self.alpha + (1 - targets) * (1 - self.alpha)
-            loss = alpha_factor * loss
-        return loss
+        #loss = (invprobs * self.gamma).exp() * bce_loss
+
+        # self.alpha = 
+        # if self.alpha is not None:
+        #     # alpha si target=1, (1−alpha) si target=0
+        #     alpha_factor = targets * self.alpha + (1 - targets) * (1 - self.alpha)
+        #     loss = alpha_factor * loss
+        modulator = invprobs.mul(self.gamma).exp()
+        alpha_factor = targets * alpha + (1 - targets) * (1 - alpha)
+        return alpha_factor * modulator * bce_loss
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """
@@ -888,7 +892,10 @@ class SoftclDiceFocalLoss(nn.Module):
         """
         # 1) Focal Loss
         targets_f = targets.float()
-        fl = self._sigmoid_focal(inputs, targets_f)
+        ratio = targets_f.sum() / targets_f.numel()
+        alpha_dyn = 1.0 - ration
+
+        fl = self._sigmoid_focal(inputs, targets_f, alpha_dyn)
         focal_loss = fl.mean()
 
         # 2) Soft clDice
