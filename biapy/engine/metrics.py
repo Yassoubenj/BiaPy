@@ -855,7 +855,7 @@ class SoftclDiceFocalLoss(nn.Module):
         w_cldice: float = 0.5,
         iter_: int = 3,
         smooth: float = 1.0,
-        gamma: float = 2.0,
+        gamma: float = 5.0,
         #alpha: float = 0.9,
     ):
         super(SoftclDiceFocalLoss, self).__init__()
@@ -892,7 +892,8 @@ class SoftclDiceFocalLoss(nn.Module):
         """
         # 1) Focal Loss
         targets_f = targets.float()
-        ratio = targets_f.sum() / targets_f.numel()
+        ratio = 0.007 #à peu près le rapport de pixel objet sur pixel background noir
+        #ratio = targets_f.sum() / targets_f.numel()
         alpha_dyn = 1.0 - ratio
 
         fl = self._sigmoid_focal(inputs, targets_f, alpha_dyn)
