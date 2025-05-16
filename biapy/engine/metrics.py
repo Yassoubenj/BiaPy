@@ -856,7 +856,7 @@ class SoftclDiceFocalLoss(nn.Module):
         iter_: int = 3,
         smooth: float = 1.0,
         gamma: float = 2.0,
-        alpha: float | None = None,
+        alpha: float = 0.9,
     ):
         super(SoftclDiceFocalLoss, self).__init__()
         self.w_focal  = w_focal
