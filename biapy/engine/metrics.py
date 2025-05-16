@@ -893,7 +893,7 @@ class SoftclDiceFocalLoss(nn.Module):
         # 1) Focal Loss
         targets_f = targets.float()
         ratio = targets_f.sum() / targets_f.numel()
-        alpha_dyn = 1.0 - ration
+        alpha_dyn = 1.0 - ratio
 
         fl = self._sigmoid_focal(inputs, targets_f, alpha_dyn)
         focal_loss = fl.mean()
