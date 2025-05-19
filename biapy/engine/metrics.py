@@ -852,12 +852,12 @@ class SoftclDiceFocalLoss(nn.Module):
     """
     def __init__(
         self,
-        w_focal: float = 0.5,
-        w_cldice: float = 0.5,
+        w_focal: float = 0.9,
+        w_cldice: float = 0.1,
         iter_: int = 3,
         smooth: float = 1.0,
         gamma: float = 2.0,
-        alpha: float | None = 0.1,
+        alpha: float | None = 0.01,
     ):
         super(SoftclDiceFocalLoss, self).__init__()
         self.w_focal  = w_focal
