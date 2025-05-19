@@ -839,24 +839,25 @@ class SoftclDiceBCELoss(nn.Module):
 
 class SoftclDiceFocalLoss(nn.Module):
     """
-    Combine la Focal Loss binaire et la Soft clDice pour la segmentation Biapy.
+    Combine Binary Focal Loss (single-channel) and Soft clDice
+    for binary segmentation (1-canal).
 
     Args:
-        w_focal   (float):  poids du terme Focal Loss.
-        w_cldice  (float):  poids du terme Soft clDice.
-        iter_     (int):    nombre itérations pour soft_skel().
-        smooth    (float):  paramètre de lissage pour clDice.
-        gamma     (float):  exponent de la Focal Loss (>=0).
-        alpha     (float):  facteur d'équilibrage alpha de la Focal Loss (∈[0,1]) ou None.
+        w_focal   (float): poids du terme Focal Loss.
+        w_cldice  (float): poids du terme Soft clDice.
+        iter_     (int):   nombre d’itérations pour soft_skel().
+        smooth    (float): paramètre de lissage pour clDice.
+        gamma     (float): exponent de la Focal Loss (>=0).
+        alpha     (float|None): facteur d’équilibrage de classe (∈[0,1]) ou None.
     """
     def __init__(
         self,
-        w_focal: float = 1.0,
-        w_cldice: float = 0.0,
+        w_focal: float = 0.5,
+        w_cldice: float = 0.5,
         iter_: int = 3,
         smooth: float = 1.0,
-        gamma: float = 5.0,
-        #alpha: float = 0.9,
+        gamma: float = 2.0,
+        alpha: float | None = 0.9,
     ):
         super(SoftclDiceFocalLoss, self).__init__()
         self.w_focal  = w_focal
@@ -864,46 +865,36 @@ class SoftclDiceFocalLoss(nn.Module):
         self.iter     = iter_
         self.smooth   = smooth
         self.gamma    = gamma
-        #self.alpha    = alpha
+        self.alpha    = alpha
 
-    def _sigmoid_focal(self, logits: torch.Tensor, targets: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """
-        Implementation de la Focal Loss binaire sur logits (non bornés).
+        logits:   (B,1,H,W) bruts non bornés
+        targets:  (B,1,H,W) {0,1}
         """
-        # équivalent de BCEWithLogitsLoss sans reduction
-        bce_loss = logits - logits * targets - F.logsigmoid(logits)
-        # invprobs = log σ(−z) si target=1, log σ(z) si target=0
-        invprobs = F.logsigmoid(-logits * (targets * 2 - 1))
-        #loss = (invprobs * self.gamma).exp() * bce_loss
-
-        # self.alpha = 
-        # if self.alpha is not None:
-        #     # alpha si target=1, (1−alpha) si target=0
-        #     alpha_factor = targets * self.alpha + (1 - targets) * (1 - self.alpha)
-        #     loss = alpha_factor * loss
-        modulator = invprobs.mul(self.gamma).exp()
-        alpha_factor = targets * alpha + (1 - targets) * (1 - alpha)
-        return alpha_factor * modulator * bce_loss
-
-    def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """
-        inputs:  logits bruts du réseau, shape (B,1,H,W) ou (B,1,D,H,W)
-        targets: masques {0,1}, même shape que inputs
-        """
-        # 1) Focal Loss
+        # 1) probabilités et targets float
+        probs     = torch.sigmoid(logits)
         targets_f = targets.float()
-        ratio = 0.007 #à peu près le rapport de pixel objet sur pixel background noir
-        #ratio = targets_f.sum() / targets_f.numel()
-        alpha_dyn = 1.0 - ratio
 
-        fl = self._sigmoid_focal(inputs, targets_f, alpha_dyn)
-        focal_loss = fl.mean()
+        # 2) Binary Focal Loss
+        # p_t = p if y=1 else (1-p)
+        p_t = probs * targets_f + (1 - probs) * (1 - targets_f)
+        # alpha balancing
+        if self.alpha is not None:
+            alpha_factor = targets_f * self.alpha + (1 - targets_f) * (1 - self.alpha)
+        else:
+            alpha_factor = 1.0
+        # focal term
+        focal_term = (1 - p_t).pow(self.gamma)
+        # safe log
+        log_p_t = torch.log(p_t.clamp(min=1e-6))
+        focal_loss = -(alpha_factor * focal_term * log_p_t).mean()
 
-        # 2) Soft clDice
-        probs     = torch.sigmoid(inputs)
+        # 3) Soft clDice Loss
         skel_pred = soft_skel(probs, self.iter)
         skel_true = soft_skel(targets_f, self.iter)
 
+        # aplatissement
         p_flat = skel_pred.view(-1)
         t_flat = skel_true.view(-1)
         y_flat = probs.view(-1)
@@ -917,9 +908,93 @@ class SoftclDiceFocalLoss(nn.Module):
 
         cldice_loss = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
 
-        # 3) Combinaison finale
-        loss = self.w_focal * focal_loss + self.w_cldice * cldice_loss
-        return loss
+        # 4) combinaison finale
+        return self.w_focal  * focal_loss + self.w_cldice * cldice_loss
+
+
+# class SoftclDiceFocalLoss(nn.Module):
+#     """
+#     Combine la Focal Loss binaire et la Soft clDice pour la segmentation Biapy.
+
+#     Args:
+#         w_focal   (float):  poids du terme Focal Loss.
+#         w_cldice  (float):  poids du terme Soft clDice.
+#         iter_     (int):    nombre itérations pour soft_skel().
+#         smooth    (float):  paramètre de lissage pour clDice.
+#         gamma     (float):  exponent de la Focal Loss (>=0).
+#         alpha     (float):  facteur d'équilibrage alpha de la Focal Loss (∈[0,1]) ou None.
+#     """
+#     def __init__(
+#         self,
+#         w_focal: float = 1.0,
+#         w_cldice: float = 0.0,
+#         iter_: int = 3,
+#         smooth: float = 1.0,
+#         gamma: float = 5.0,
+#         #alpha: float = 0.9,
+#     ):
+#         super(SoftclDiceFocalLoss, self).__init__()
+#         self.w_focal  = w_focal
+#         self.w_cldice = w_cldice
+#         self.iter     = iter_
+#         self.smooth   = smooth
+#         self.gamma    = gamma
+#         #self.alpha    = alpha
+
+#     def _sigmoid_focal(self, logits: torch.Tensor, targets: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
+#         """
+#         Implementation de la Focal Loss binaire sur logits (non bornés).
+#         """
+    
+#         bce_loss = logits - logits * targets - F.logsigmoid(logits)
+#         # invprobs = log σ(−z) si target=1, log σ(z) si target=0
+#         invprobs = F.logsigmoid(-logits * (targets * 2 - 1))
+#         #loss = (invprobs * self.gamma).exp() * bce_loss
+
+#         # self.alpha = 
+#         # if self.alpha is not None:
+#         #     # alpha si target=1, (1−alpha) si target=0
+#         #     alpha_factor = targets * self.alpha + (1 - targets) * (1 - self.alpha)
+#         #     loss = alpha_factor * loss
+#         modulator = invprobs.mul(self.gamma).exp()
+#         alpha_factor = targets * alpha + (1 - targets) * (1 - alpha)
+#         return alpha_factor * modulator * bce_loss
+
+#     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+#         """
+#         inputs:  logits bruts du réseau, shape (B,1,H,W) ou (B,1,D,H,W)
+#         targets: masques {0,1}, même shape que inputs
+#         """
+#         # 1) Focal Loss
+#         targets_f = targets.float()
+#         ratio = 0.007 #à peu près le rapport de pixel objet sur pixel background noir
+#         #ratio = targets_f.sum() / targets_f.numel()
+#         alpha_dyn = 1.0 - ratio
+
+#         fl = self._sigmoid_focal(inputs, targets_f, alpha_dyn)
+#         focal_loss = fl.mean()
+
+#         # 2) Soft clDice
+#         probs     = torch.sigmoid(inputs)
+#         skel_pred = soft_skel(probs, self.iter)
+#         skel_true = soft_skel(targets_f, self.iter)
+
+#         p_flat = skel_pred.view(-1)
+#         t_flat = skel_true.view(-1)
+#         y_flat = probs.view(-1)
+#         g_flat = targets_f.view(-1)
+
+#         tprec_num = (p_flat * g_flat).sum()
+#         tprec     = (tprec_num + self.smooth) / (p_flat.sum() + self.smooth)
+
+#         tsens_num = (t_flat * y_flat).sum()
+#         tsens     = (tsens_num + self.smooth) / (t_flat.sum() + self.smooth)
+
+#         cldice_loss = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+
+#         # 3) Combinaison finale
+#         loss = self.w_focal * focal_loss + self.w_cldice * cldice_loss
+#         return loss
 
 class instance_segmentation_loss:
     def __init__(
