@@ -800,7 +800,7 @@ class SoftclDiceBCELoss(nn.Module):
         iter_    (int):   nombre d’itérations pour soft_skel().
         smooth   (float): paramètre de lissage.
     """
-    def __init__(self, w_cldice: float = 0.5, w_bce: float = 0.5,
+    def __init__(self, w_cldice: float = 0.0, w_bce: float = 1.0,
                 iter_: int = 3, smooth: float = 1.0):
         super(SoftclDiceBCELoss, self).__init__()
         self.w_cldice = w_cldice
