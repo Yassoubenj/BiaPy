@@ -21,10 +21,7 @@ DATA:
         IN_MEMORY: True
         LOAD_GT: True
         PADDING: (4,16,16)
-    PREPROCESS:
-        TRAIN: True
-        TEST: True
-        VAL: True
+ 
 
 
 AUGMENTOR:
