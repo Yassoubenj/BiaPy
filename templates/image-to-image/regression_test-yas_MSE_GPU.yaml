@@ -10,14 +10,14 @@ PROBLEM:
 DATA: 
     PATCH_SIZE: (32, 128, 128, 3)
     TRAIN:                                                                                                              
-        PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_non_normalisВ_255/train/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_non_normalisВ_255/train/label
+        PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/train/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/train/label
         IN_MEMORY: True
     VAL:
         SPLIT_TRAIN: 0.1
     TEST:                                                                                                               
-        PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_non_normalisВ_255/test/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_non_normalisВ_255/test/label
+        PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/test/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/test/label
         IN_MEMORY: True
         LOAD_GT: True
         PADDING: (4,16,16)
