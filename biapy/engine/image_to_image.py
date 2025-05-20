@@ -89,10 +89,10 @@ class Image_to_Image_Workflow(Base_Workflow):
         """
         self.model_output_channels = {
             "type": "image",
-            "channels": [self.cfg.DATA.PATCH_SIZE[-1]],
+            "channels": [self.cfg.DATA.PATCH_SIZE[-1]], 
         }
         self.multihead = False
-        self.activations = [{":": "Linear"}]
+        self.activations = [{":": "Sigmoid"}] #attention de base c'était linear
 
         super().define_activations_and_channels()
 
