@@ -14,7 +14,7 @@ from biapy.engine.metrics import (
     CrossEntropyLoss_wrapper,
     DiceBCELoss,
     DiceLoss,
-    SoftclDiceLoss,
+    SoftclDiceBCELoss,
     )
 from biapy.data.dataset import PatchCoords
 
@@ -149,7 +149,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
             iter_  = getattr(self.cfg.LOSS, "ITER", 3)
             smooth = getattr(self.cfg.LOSS, "SMOOTH", 1.0)
             #nclass = self.cfg.MODEL.N_CLASSES 
-            self.loss = SoftclDiceLoss(iter_=iter_, smooth=smooth) 
+            self.loss = SoftclDiceBCELoss(iter_=iter_, smooth=smooth) 
         #elif self.cfg.LOSS.TYPE.upper() == "MSE":
             # torch.nn.MSELoss fait la moyenne voxel à voxel
             #self.loss = nn.MSELoss(reduction='mean')

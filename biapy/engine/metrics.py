@@ -780,6 +780,7 @@ class DiceBCELoss(nn.Module):
 
     def forward(self, inputs, targets, smooth=1):
         inputs = F.sigmoid(inputs)
+        
 
         # flatten label and prediction tensors
         inputs = inputs.view(-1)
@@ -803,7 +804,7 @@ class SoftclDiceBCELoss(nn.Module):
         smooth   (float): paramètre de lissage.
     """
     def __init__(self, w_cldice: float = 0.5, w_bce: float = 0.5,
-                iter_: int = 10, smooth: float = 0.3):
+                iter_: int = 3, smooth: float = 1.0):
         super(SoftclDiceBCELoss, self).__init__()
         self.w_cldice = w_cldice
         self.w_bce    = w_bce
@@ -811,15 +812,20 @@ class SoftclDiceBCELoss(nn.Module):
         self.smooth   = smooth
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        bce = torch.nn.BCEwithLogitsLoss()(inputs, targets)
         # inputs: logits non bornés → proba [0,1]
         inputs = F.sigmoid(inputs)
+        inputs = (inputs > 0.5).float()
+        inputs = inputs.to(torch.uint8)
+    
 
         # aplatir pour le BCE
         inputs_flat  = inputs.view(-1)
         targets_flat = targets.view(-1)
 
         # 1) BCE
-        bce = F.binary_cross_entropy(inputs_flat, targets_flat, reduction="mean")
+        #bce = F.binary_cross_entropy(inputs_flat, targets_flat, reduction="mean")
+        
 
         # 2) Soft clDice
         skel_pred     = soft_skel(inputs, self.iter)
