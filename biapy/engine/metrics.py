@@ -474,7 +474,7 @@ class SoftclDiceLoss(nn.Module):
         iter_ (int): nombre d'itérations pour la squelettisation.
         smooth (float): paramètre de lissage.
     """
-    def __init__(self, iter_: int = 10, smooth: float = 5.0):
+    def __init__(self, iter_: int = 20, smooth: float = 8.0):
         super(SoftclDiceLoss, self).__init__()
         self.iter = iter_
         self.smooth = smooth
