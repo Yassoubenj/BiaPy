@@ -812,7 +812,7 @@ class SoftclDiceBCELoss(nn.Module):
         self.smooth   = smooth
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        bce = torch.nn.BCEwithLogitsLoss()(inputs, targets)
+        bce = torch.nn.BCEWithLogitsLoss()(inputs, targets)
         # inputs: logits non bornés → proba [0,1]
         inputs = F.sigmoid(inputs)
         inputs = (inputs > 0.5).float()
