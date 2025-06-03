@@ -617,7 +617,7 @@ class SoftclDiceLoss(nn.Module):
         # Appliquer la sigmoïde comme dans DiceLoss
         inputs = F.sigmoid(inputs) 
         print("logit.requires_grad", inputs.requires_grad)
-        inputs = (inputs > 0.5).float()
+        inputs = F.sigmoid(10*(inputs-0.5))
         print("inputs.requires_grad", inputs.requires_grad)
         #inputs = inputs.to(torch.uint8)
         # inputs = (inputs > 0.5)
