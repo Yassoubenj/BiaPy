@@ -534,9 +534,9 @@ class DiceLoss(nn.Module): #mais à quoi correspond ces target dans biapy ? a qu
         super(DiceLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):
-        print("HERE DICE LOSS", np.unique(inputs), np.unique(targets))
+        #print("HERE DICE LOSS", np.unique(inputs), np.unique(targets))
         inputs = F.sigmoid(inputs)
-        print(np.unique(inputs), np.unique(targets))
+        #print(np.unique(inputs), np.unique(targets))
 
         # flatten label and prediction tensors
         inputs = inputs.view(-1)
@@ -615,11 +615,11 @@ class SoftclDiceLoss(nn.Module):
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         # Appliquer la sigmoïde comme dans DiceLoss
-        print("HERE CL_DICE LOSS", np.unique(inputs), np.unique(targets))
+        #print("HERE CL_DICE LOSS", np.unique(inputs), np.unique(targets))
         inputs = F.sigmoid(inputs) 
-        print(np.unique(inputs))
+        #print(np.unique(inputs))
         inputs = (inputs > 0.5) #masque
-        print(np.unique(inputs))
+        #print(np.unique(inputs))
         inputs = inputs.to(torch.uint8) #la on doit avoir des masque 1 ou 0 
     
         # Calcul des squelettes “soft”
