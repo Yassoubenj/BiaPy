@@ -616,7 +616,9 @@ class SoftclDiceLoss(nn.Module):
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         # Appliquer la sigmoïde comme dans DiceLoss
         inputs = F.sigmoid(inputs) 
+        print("logit.requires_grad", inputs.requires_grad)
         inputs = (inputs > 0.5).float()
+        print("inputs.requires_grad", inputs.requires_grad)
         #inputs = inputs.to(torch.uint8)
         # inputs = (inputs > 0.5)
         # inputs = inputs.astype(torch.uint8) #masque
