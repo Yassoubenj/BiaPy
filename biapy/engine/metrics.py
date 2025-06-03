@@ -618,9 +618,9 @@ class SoftclDiceLoss(nn.Module):
         #print("HERE CL_DICE LOSS", np.unique(inputs), np.unique(targets))
         inputs = F.sigmoid(inputs) 
         #print(np.unique(inputs))
-        inputs = (inputs > 0.5) #masque
+        inputs = (inputs > 0.5).float() #masque
         #print(np.unique(inputs))
-        inputs = inputs.to(torch.uint8) #la on doit avoir des masque 1 ou 0 
+        #inputs = inputs.to(torch.uint8) #la on doit avoir des masque 1 ou 0 
     
         # Calcul des squelettes “soft”
         skel_pred = soft_skel(inputs, self.iter)
