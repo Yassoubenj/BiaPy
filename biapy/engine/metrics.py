@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 from torch.nn.modules.loss import _Loss
 from typing import Dict, Optional, List
+from skimage.morphology import skeletonize #à voir si on doit limporter du coup !
 
 # def mse_loss(predictions: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
 #     """
@@ -20,6 +21,135 @@ from typing import Dict, Optional, List
 #     targets:     (B, 1, Z, Y, X)
 #     """
 #     return F.mse_loss(predictions, targets)
+
+
+
+# def cl_score(v, s):
+#     """[this function computes the skeleton volume overlap]
+
+#     Args:
+#         v ([bool]): [image]
+#         s ([bool]): [skeleton]
+
+#     Returns:
+#         [float]: [computed skeleton volume intersection]
+#     """
+#     s=s>0 #sinon on met astype(bool)
+#     v=v>0
+#     return np.sum(v*s)/(np.sum(s)+1)
+
+
+# class CLDice:
+#     """
+
+#     """
+#     def __init__(self, threshold: float = 0.5, eps: float = 1e-6):
+#     self.threshold = threshold
+#     self.eps = eps
+
+#     def __call__(self, y_pred, y_true):
+#         """
+#         y_pred: torch.Tensor de logits (N,1,D,H,W) ou numpy array
+#         y_true: torch.Tensor ou numpy array de masques binaires (0/1)
+#         """
+#         # 1) Convert logits to binary mask
+#         if isinstance(y_pred, torch.Tensor):
+#             prob = torch.sigmoid(y_pred)
+#             # detach() to remove gradient, cpu() to move to CPU for numpy()
+#             pred_np = (prob > self.threshold).detach().cpu().numpy().astype(bool)
+#         else:
+#             pred_np = (np.array(y_pred) > self.threshold).astype(bool)
+
+#         # 2) Prepare ground truth as boolean numpy
+#         if isinstance(y_true, torch.Tensor):
+#             true_np = y_true.detach().cpu().numpy().astype(bool)
+#         else:
+#             true_np = np.array(y_true).astype(bool)
+
+#         # 3) Flatten leading dims to get list of volumes/slices
+#         def flatten_masks(arr: np.ndarray) -> np.ndarray:
+#             # any dims before the last 2 or 3 are batch dims
+#             if arr.ndim > 3:
+#                 spatial = arr.shape[-3:] if arr.ndim > 2 and arr.shape[-3] > 1 else arr.shape[-2:]
+#                 return arr.reshape(-1, *spatial)
+#             else:
+#                 return arr[np.newaxis, ...]
+
+#         pred_list = flatten_masks(pred_np)
+#         true_list = flatten_masks(true_np)
+
+#         # 4) Compute clDice per sample
+#         scores = []
+#         for p, t in zip(pred_list, true_list):
+#             sk_p = skeletonize_nd(p)
+#             sk_t = skeletonize_nd(t)
+
+#             tprec = cl_score(t, sk_p)
+#             tsens = cl_score(p, sk_t)
+#             cld = 2 * tprec * tsens / (tprec + tsens + self.eps)
+#             scores.append(cld)
+
+#         # Mean over batch
+#         mean_cld = float(np.mean(scores))
+#         # Return as torch.Tensor to integrate in Biapy
+#         if isinstance(y_pred, torch.Tensor):
+#             return torch.tensor(mean_cld, device=y_pred.device)
+#         else:
+#             return mean_cld
+
+
+# def dice_score(pred: np.ndarray, true: np.ndarray, eps: float = 1e-6) -> float:
+#     pred = pred.astype(bool)
+#     true = true.astype(bool)
+#     intersection = np.logical_and(pred, true).sum()
+#     return (2 * intersection) / (pred.sum() + true.sum() + eps)
+
+# def cl_score(v: np.ndarray, s: np.ndarray) -> float:
+#     v = v.astype(bool)
+#     s = s.astype(bool)
+#     return np.sum(v & s) / (np.sum(s) + 1)
+
+# class CLDice:
+#     def __init__(self, threshold: float = 0.5, eps: float = 1e-6):
+#     self.threshold = threshold
+#     self.eps = eps
+
+#     def __call__(self, y_pred, y_true) -> float:
+#         # Apply sigmoid if logits
+#         if isinstance(y_pred, torch.Tensor):
+#             prob = torch.sigmoid(y_pred).detach().cpu().numpy()
+#         else:
+#             prob = np.array(y_pred)
+#         pred = (prob > self.threshold).astype(bool)
+#         true = np.array(y_true).astype(bool)
+#         sk_pred = skeletonize(pred)
+#         sk_true = skeletonize(true)
+#         tprec = cl_score(true, sk_pred)
+#         tsens = cl_score(pred, sk_true)
+#         return (2 * tprec * tsens) / (tprec + tsens + self.eps)
+
+# class BettiError:
+#     def __init__(self, threshold: float = 0.5):
+#         self.threshold = threshold
+
+#     def __call__(self, y_pred, y_true) -> float:
+#         # Apply sigmoid if logits
+#         if isinstance(y_pred, torch.Tensor):
+#             prob = torch.sigmoid(y_pred).detach().cpu().numpy()
+#         else:
+#             prob = np.array(y_pred)
+#         pred = (prob > self.threshold).astype(bool)
+#         true = np.array(y_true).astype(bool)
+
+#         def betti_nums(mask: np.ndarray):
+#             b0 = int(label(mask, connectivity=1).max())
+#             chi = euler_number(mask, connectivity=1)
+#             b1 = b0 - chi
+#             return b0, b1
+
+#         b0_p, b1_p = betti_nums(pred)
+#         b0_t, b1_t = betti_nums(true)
+        # return abs(b0_p - b0_t) + abs(b1_p - b1_t)
 
 def jaccard_index_numpy(y_true, y_pred):
     """
@@ -404,7 +534,9 @@ class DiceLoss(nn.Module): #mais à quoi correspond ces target dans biapy ? a qu
         super(DiceLoss, self).__init__()
 
     def forward(self, inputs, targets, smooth=1):
+        print("HERE DICE LOSS", np.unique(inputs), np.unique(targets))
         inputs = F.sigmoid(inputs)
+        print(np.unique(inputs), np.unique(targets))
 
         # flatten label and prediction tensors
         inputs = inputs.view(-1)
@@ -413,6 +545,7 @@ class DiceLoss(nn.Module): #mais à quoi correspond ces target dans biapy ? a qu
         intersection = (inputs * targets).sum() #dans monai il fait un slicing ici 
         dice = (2.0 * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
 
+        print(dice, dice.shape)
         return 1 - dice
     
 def soft_erode(img: torch.Tensor) -> torch.Tensor:
@@ -465,7 +598,7 @@ def soft_skel(img: torch.Tensor, iter_: int) -> torch.Tensor:
         delta = F.relu(img - img1)
         skel = skel + F.relu(delta - skel * delta)
     return skel
-    
+
 class SoftclDiceLoss(nn.Module):
     """
     Soft clDice loss adapted au style Biapy.
@@ -474,7 +607,7 @@ class SoftclDiceLoss(nn.Module):
         iter_ (int): nombre d'itérations pour la squelettisation.
         smooth (float): paramètre de lissage.
     """
-    def __init__(self, iter_: int = 20, smooth: float = 8.0):
+    def __init__(self, iter_: int = 3, smooth: float = 1.0):
         super(SoftclDiceLoss, self).__init__()
         self.iter = iter_
         self.smooth = smooth
@@ -482,9 +615,12 @@ class SoftclDiceLoss(nn.Module):
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         # Appliquer la sigmoïde comme dans DiceLoss
+        print("HERE CL_DICE LOSS", np.unique(inputs), np.unique(targets))
         inputs = F.sigmoid(inputs) 
-        inputs = (inputs > 0.5).float()
-        inputs = inputs.to(torch.uint8)
+        print(np.unique(inputs))
+        inputs = (inputs > 0.5) #masque
+        print(np.unique(inputs))
+        inputs = inputs.to(torch.uint8) #la on doit avoir des masque 1 ou 0 
     
         # Calcul des squelettes “soft”
         skel_pred = soft_skel(inputs, self.iter)
