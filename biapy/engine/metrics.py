@@ -43,8 +43,8 @@ class CLDice:
 
     """
     def __init__(self, threshold: float = 0.5, eps: float = 1e-6):
-    self.threshold = threshold
-    self.eps = eps
+        self.threshold = threshold
+        self.eps = eps
 
     def __call__(self, y_pred, y_true):
         """
