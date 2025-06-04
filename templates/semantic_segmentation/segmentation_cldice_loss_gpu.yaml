@@ -39,6 +39,7 @@ MODEL:
 
 TRAIN:
     ENABLE: True
+    METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
     LR: 1.E-3
     BATCH_SIZE: 2
@@ -52,4 +53,4 @@ TEST:
     FULL_IMG: False
 
 LOSS:
-    TYPE: CLDICE
+    TYPE: DICE

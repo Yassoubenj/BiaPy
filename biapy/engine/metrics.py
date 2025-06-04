@@ -23,7 +23,6 @@ from skimage.morphology import skeletonize #à voir si on doit limporter du coup
 #     return F.mse_loss(predictions, targets)
 
 
-
 def cl_score(v, s):
     """[this function computes the skeleton volume overlap]
 
@@ -39,63 +38,63 @@ def cl_score(v, s):
     return np.sum(v*s)/(np.sum(s)) #ptt rajouter+1 pr pas avoir de denominateur nul
 
 
-# class CLDice:
-#     """
+class CLDice:
+    """
 
-#     """
-#     def __init__(self, threshold: float = 0.5, eps: float = 1e-6):
-#     self.threshold = threshold
-#     self.eps = eps
+    """
+    def __init__(self, threshold: float = 0.5, eps: float = 1e-6):
+    self.threshold = threshold
+    self.eps = eps
 
-#     def __call__(self, y_pred, y_true):
-#         """
-#         y_pred: torch.Tensor de logits (N,1,D,H,W) ou numpy array
-#         y_true: torch.Tensor ou numpy array de masques binaires (0/1)
-#         """
-#         # 1) Convert logits to binary mask
-#         if isinstance(y_pred, torch.Tensor):
-#             prob = torch.sigmoid(y_pred)
-#             # detach() to remove gradient, cpu() to move to CPU for numpy()
-#             pred_np = (prob > self.threshold).detach().cpu().numpy().astype(bool)
-#         else:
-#             pred_np = (np.array(y_pred) > self.threshold).astype(bool)
+    def __call__(self, y_pred, y_true):
+        """
+        y_pred: torch.Tensor de logits (N,1,D,H,W) ou numpy array
+        y_true: torch.Tensor ou numpy array de masques binaires (0/1)
+        """
+        # 1) Convert logits to binary mask
+        if isinstance(y_pred, torch.Tensor):
+            prob = torch.sigmoid(y_pred)
+            # detach() to remove gradient, cpu() to move to CPU for numpy()
+            pred_np = (prob > self.threshold).detach().cpu().numpy().astype(bool)
+        else:
+            pred_np = (np.array(y_pred) > self.threshold).astype(bool)
 
-#         # 2) Prepare ground truth as boolean numpy
-#         if isinstance(y_true, torch.Tensor):
-#             true_np = y_true.detach().cpu().numpy().astype(bool)
-#         else:
-#             true_np = np.array(y_true).astype(bool)
+        # 2) Prepare ground truth as boolean numpy
+        if isinstance(y_true, torch.Tensor):
+            true_np = y_true.detach().cpu().numpy().astype(bool)
+        else:
+            true_np = np.array(y_true).astype(bool)
 
-#         # 3) Flatten leading dims to get list of volumes/slices
-#         def flatten_masks(arr: np.ndarray) -> np.ndarray:
-#             # any dims before the last 2 or 3 are batch dims
-#             if arr.ndim > 3:
-#                 spatial = arr.shape[-3:] if arr.ndim > 2 and arr.shape[-3] > 1 else arr.shape[-2:]
-#                 return arr.reshape(-1, *spatial)
-#             else:
-#                 return arr[np.newaxis, ...]
+        # 3) Flatten leading dims to get list of volumes/slices
+        def flatten_masks(arr: np.ndarray) -> np.ndarray:
+            # any dims before the last 2 or 3 are batch dims
+            if arr.ndim > 3:
+                spatial = arr.shape[-3:] if arr.ndim > 2 and arr.shape[-3] > 1 else arr.shape[-2:]
+                return arr.reshape(-1, *spatial)
+            else:
+                return arr[np.newaxis, ...]
 
-#         pred_list = flatten_masks(pred_np)
-#         true_list = flatten_masks(true_np)
+        pred_list = flatten_masks(pred_np)
+        true_list = flatten_masks(true_np)
 
-#         # 4) Compute clDice per sample
-#         scores = []
-#         for p, t in zip(pred_list, true_list):
-#             sk_p = skeletonize_nd(p)
-#             sk_t = skeletonize_nd(t)
+        # 4) Compute clDice per sample
+        scores = []
+        for p, t in zip(pred_list, true_list):
+            sk_p = skeletonize_nd(p)
+            sk_t = skeletonize_nd(t)
 
-#             tprec = cl_score(t, sk_p)
-#             tsens = cl_score(p, sk_t)
-#             cld = 2 * tprec * tsens / (tprec + tsens + self.eps)
-#             scores.append(cld)
+            tprec = cl_score(t, sk_p)
+            tsens = cl_score(p, sk_t)
+            cld = 2 * tprec * tsens / (tprec + tsens + self.eps)
+            scores.append(cld)
 
-#         # Mean over batch
-#         mean_cld = float(np.mean(scores))
-#         # Return as torch.Tensor to integrate in Biapy
-#         if isinstance(y_pred, torch.Tensor):
-#             return torch.tensor(mean_cld, device=y_pred.device)
-#         else:
-#             return mean_cld
+        # Mean over batch
+        mean_cld = float(np.mean(scores))
+        # Return as torch.Tensor to integrate in Biapy
+        if isinstance(y_pred, torch.Tensor):
+            return torch.tensor(mean_cld, device=y_pred.device)
+        else:
+            return mean_cld
 
 
 # def dice_score(pred: np.ndarray, true: np.ndarray, eps: float = 1e-6) -> float:

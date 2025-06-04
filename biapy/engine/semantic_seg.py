@@ -15,8 +15,8 @@ from biapy.engine.metrics import (
     DiceBCELoss,
     DiceLoss,
     SoftclDiceLoss,
-    )
-#import Cldice metrics 
+    CLDice
+    ) 
 from biapy.data.dataset import PatchCoords
 
 
@@ -122,7 +122,17 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                 )
                 self.train_metric_names.append("IoU")
                 self.train_metric_best.append("max")
-            #elif metric.lower() =="cldice":
+            elif  metric.lower() == "cldice":
+                self.train_metrics.append(
+                    clDice(                         
+                        threshold=getattr(
+                            self.cfg.TRAIN, "CLDICE_THRESHOLD", 0.5
+                        )                                  
+                    )
+                )
+                self.train_metric_names.append("clDice")
+                self.train_metric_best.append("max") 
+
 
         self.test_metrics = []
         self.test_metric_names = []
@@ -136,6 +146,16 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                     )
                 )
                 self.test_metric_names.append("IoU")
+             elif  metric.lower() == "cldice":
+                self.test_metrics.append(
+                    clDice(                                
+                        threshold=getattr(
+                            self.cfg.TRAIN, "CLDICE_THRESHOLD", 0.5
+                        )                                
+                    )
+                )
+                self.train_metric_names.append("clDice")
+
 
         if self.cfg.LOSS.TYPE == "CE":
             self.loss = CrossEntropyLoss_wrapper(
