@@ -146,7 +146,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                     )
                 )
                 self.test_metric_names.append("IoU")
-             elif  metric.lower() == "cldice":
+            elif  metric.lower() == "cldice":
                 self.test_metrics.append(
                     clDice(                                
                         threshold=getattr(
