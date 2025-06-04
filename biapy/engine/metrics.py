@@ -24,19 +24,19 @@ from skimage.morphology import skeletonize #à voir si on doit limporter du coup
 
 
 
-# def cl_score(v, s):
-#     """[this function computes the skeleton volume overlap]
+def cl_score(v, s):
+    """[this function computes the skeleton volume overlap]
 
-#     Args:
-#         v ([bool]): [image]
-#         s ([bool]): [skeleton]
+    Args:
+        v ([bool]): [image]
+        s ([bool]): [skeleton]
 
-#     Returns:
-#         [float]: [computed skeleton volume intersection]
-#     """
-#     s=s>0 #sinon on met astype(bool)
-#     v=v>0
-#     return np.sum(v*s)/(np.sum(s)+1)
+    Returns:
+        [float]: [computed skeleton volume intersection]
+    """
+    s=s>0 #sinon on met astype(bool)
+    v=v>0
+    return np.sum(v*s)/(np.sum(s)) #ptt rajouter+1 pr pas avoir de denominateur nul
 
 
 # class CLDice:
@@ -616,11 +616,13 @@ class SoftclDiceLoss(nn.Module):
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         # Appliquer la sigmoïde comme dans DiceLoss
         inputs = F.sigmoid(inputs) 
-        print("logit.requires_grad", inputs.requires_grad)
-        inputs = F.sigmoid(10*(inputs-0.5))
-        print("inputs.requires_grad", inputs.requires_grad)
-        #inputs = inputs.to(torch.uint8)
-        # inputs = (inputs > 0.5)
+        print(torch.unique(inputs))
+        inputs = (inputs > 0.5)
+        print(torch.unique(inputs))
+        inputs = inputs.to(torch.uint8)
+        print(torch.unique(inputs))
+ #inputs = F.sigmoid(10*(inputs-0.5))
+       #print("inputs.requires_grad", inputs.requires_grad)
         # inputs = inputs.astype(torch.uint8) #masque
         #print(np.unique(inputs))
         #inputs = inputs.to(torch.uint8) #la on doit avoir des masque 1 ou 0 
