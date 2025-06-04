@@ -80,8 +80,8 @@ class CLDice:
         # 4) Compute clDice per sample
         scores = []
         for p, t in zip(pred_list, true_list):
-            sk_p = skeletonize_nd(p)
-            sk_t = skeletonize_nd(t)
+            sk_p = skeletonize(p)
+            sk_t = skeletonize(t)
 
             tprec = cl_score(t, sk_p)
             tsens = cl_score(p, sk_t)
