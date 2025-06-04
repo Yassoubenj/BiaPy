@@ -124,7 +124,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                 self.train_metric_best.append("max")
             elif  metric.lower() == "cldice":
                 self.train_metrics.append(
-                    clDice(                         
+                    CLDice(                         
                         threshold=getattr(
                             self.cfg.TRAIN, "CLDICE_THRESHOLD", 0.5
                         )                                  
@@ -148,7 +148,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                 self.test_metric_names.append("IoU")
             elif  metric.lower() == "cldice":
                 self.test_metrics.append(
-                    clDice(                                
+                    CLDice(                                
                         threshold=getattr(
                             self.cfg.TRAIN, "CLDICE_THRESHOLD", 0.5
                         )                                
