@@ -49,6 +49,7 @@ TRAIN:
   
 TEST:
     ENABLE: True
+    METRICS : ["iou", "cldice"]
     AUGMENTATION: False
     FULL_IMG: False
 

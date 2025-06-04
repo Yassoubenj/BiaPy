@@ -8,6 +8,7 @@ from biapy.utils.misc import get_checkpoint_path
 from biapy.data.data_manipulation import check_value
 from biapy.config import Config
 
+_VALID_METRICS = ["iou", "cldice"]
 def check_configuration(cfg, jobname, check_data_paths=True):
     """
     Check if the configuration is good.
@@ -467,11 +468,13 @@ def check_configuration(cfg, jobname, check_data_paths=True):
             opts.extend(["TEST.METRICS", ["iou"]])
 
         assert len(cfg.TRAIN.METRICS) == 0 or all(
-            [True if x.lower() in ["iou"] else False for x in cfg.TRAIN.METRICS]
+           #[True if x.lower() in ["iou"] else False for x in cfg.TRAIN.METRICS]
+           m.lower() in _VALID_METRICS for m in cfg.TRAIN.METRICS
         ), f"'TRAIN.METRICS' needs to be 'iou' in {cfg.PROBLEM.TYPE} workflow"
 
         assert len(cfg.TEST.METRICS) == 0 or all(
-            [True if x.lower() in ["iou"] else False for x in cfg.TEST.METRICS]
+             m.lower() in _VALID_METRICS for m in cfg.TEST.METRICS
+           #[True if x.lower() in ["iou"] else False for x in cfg.TEST.METRICS]
         ), f"'TEST.METRICS' needs to be 'iou' in {cfg.PROBLEM.TYPE} workflow"
 
     elif cfg.PROBLEM.TYPE in [
