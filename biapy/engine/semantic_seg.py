@@ -154,7 +154,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                         )                                
                     )
                 )
-                self.train_metric_names.append("clDice")
+                self.test_metric_names.append("clDice")
 
 
         if self.cfg.LOSS.TYPE == "CE":
