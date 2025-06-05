@@ -606,21 +606,20 @@ class SoftclDiceLoss(nn.Module):
         iter_ (int): nombre d'itérations pour la squelettisation.
         smooth (float): paramètre de lissage.
     """
-    def __init__(self, iter_: int = 10, smooth: float = 3.0):
+    def __init__(self, iter_: int = 6, smooth: float = 0.0000001):
         super(SoftclDiceLoss, self).__init__()
         self.iter = iter_
         self.smooth = smooth
-        self._printed=False
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         # Appliquer la sigmoïde comme dans DiceLoss
         inputs = F.sigmoid(inputs) 
-        print(torch.unique(inputs))
-        inputs = (inputs > 0.5)
-        print(torch.unique(inputs))
-        inputs = inputs.float()
+       #print(torch.unique(inputs))
+       #inputs = (inputs > 0.5)
+       #print(torch.unique(inputs))
+       #inputs = inputs.float()
         #nputs = inputs.to(torch.uint8)
-        print(torch.unique(inputs))
+       #print(torch.unique(inputs))
  #inputs = F.sigmoid(10*(inputs-0.5))
        #print("inputs.requires_grad", inputs.requires_grad)
         # inputs = inputs.astype(torch.uint8) #masque
@@ -630,6 +629,9 @@ class SoftclDiceLoss(nn.Module):
         # Calcul des squelettes “soft”
         skel_pred = soft_skel(inputs, self.iter)
         skel_true = soft_skel(targets, self.iter)
+        print(torch.unique(skel_true), skel_true.shape))
+        print(torch.unique(skel_pred), skel_pred.shape))
+    
 
         # Aplatir tous les tenseurs
         skel_pred_flat = skel_pred.view(-1)
