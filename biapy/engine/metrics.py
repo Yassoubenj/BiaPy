@@ -629,8 +629,8 @@ class SoftclDiceLoss(nn.Module):
         # Calcul des squelettes “soft”
         skel_pred = soft_skel(inputs, self.iter)
         skel_true = soft_skel(targets, self.iter)
-        print(torch.unique(skel_true), skel_true.shape))
-        print(torch.unique(skel_pred), skel_pred.shape))
+        print(torch.unique(skel_true), skel_true.shape)
+        print(torch.unique(skel_pred), skel_pred.shape)
     
 
         # Aplatir tous les tenseurs
