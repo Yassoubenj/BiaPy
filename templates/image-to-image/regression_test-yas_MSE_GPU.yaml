@@ -52,5 +52,5 @@ TEST:
     AUGMENTATION: False
     FULL_IMG: False
 
-LOSS:
-    TYPE: MSE
+# LOSS:
+#     TYPE: MSE
