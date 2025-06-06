@@ -14,7 +14,7 @@ DATA:
         GT_PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/train/label
         IN_MEMORY: True
     VAL:
-        SPLIT_TRAIN: 0.1
+        SPLIT_TRAIN: 0.2
     TEST:                                                                                                               
         PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/test/raw
         GT_PATH: /home/yasminebenjelloun/dataset/dataset_segmentation_1000/test/label
@@ -23,35 +23,69 @@ DATA:
         PADDING: (4,16,16)
 
 AUGMENTOR:
-    ENABLE: False
-    RANDOM_ROT: True
+    ENABLE: True
+    DA_PROB: 0.5
+    CUTOUT: False
+    # GRIDMASK: True
+    CUTBLUR: True
+    # RANDOM_ROT: True
     VFLIP: True
     HFLIP: True
     ZFLIP: True
+    CONTRAST: True
+    CONTRAST_FACTOR: (-0.3, 0.3)
+    BRIGHTNESS: True
+    BRIGHTNESS_FACTOR: (-0.3, 0.3)
+    GAMMA_CONTRAST: True
+    GC_GAMMA: (0.5, 1.5)
+    # ELASTIC: True
     CHANNEL_SHUFFLE: True
+    AFFINE_MODE: 'reflect'
+
+# AUGMENTOR:
+#     ENABLE: False
+#     RANDOM_ROT: True
+#     VFLIP: True
+#     HFLIP: True
+#     ZFLIP: True
+#     CHANNEL_SHUFFLE: True
 
 MODEL:
-    ARCHITECTURE: resunet++
-    FEATURE_MAPS: [16, 32, 64, 128, 256]
+    ARCHITECTURE: resunet
+    FEATURE_MAPS: [48, 64, 80, 96]
+    Z_DOWN: [1,1,1]
     LOAD_CHECKPOINT: False
-    N_CLASSES : 2
+    # N_CLASSES : 2
 
 
 TRAIN:
     ENABLE: True
     METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
-    LR: 1.E-3
-    BATCH_SIZE: 2
-    EPOCHS: 30
+    LR: 1.E-4
+    BATCH_SIZE: 3
+    EPOCHS: 2000
     PATIENCE: 30
+    LR_SCHEDULER:
+        NAME: 'warmupcosine'
+        MIN_LR: 1.E-6
+        WARMUP_COSINE_DECAY_EPOCHS: 50
+
+# TRAIN:
+#     ENABLE: True
+#     METRICS : ["iou", "cldice"]
+#     OPTIMIZER: ADAMW
+#     LR: 1.E-3
+#     BATCH_SIZE: 2
+#     EPOCHS: 30
+#     PATIENCE: 30
   
   
 TEST:
     ENABLE: True
     METRICS : ["iou", "cldice"]
     AUGMENTATION: False
-    FULL_IMG: False
+    FULL_IMG: True
 
 LOSS:
     TYPE: CLDICE
