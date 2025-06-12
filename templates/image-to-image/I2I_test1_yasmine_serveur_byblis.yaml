@@ -11,15 +11,15 @@ PROBLEM:
 DATA:
     PATCH_SIZE: (32, 128, 128, 3)
     TRAIN:
-        PATH: h:\CreER\dataset_regression_3C_I2I_100\train\raw
-        GT_PATH: h:\CreER\dataset_regression_3C_I2I_100\train\label
+        PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/train/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/train/label
         IN_MEMORY: True
     VAL:
         FROM_TRAIN: True
         SPLIT_TRAIN: 0.2
     TEST:
-        PATH: h:\CreER\dataset_regression_3C_I2I_100\test\raw
-        GT_PATH: h:\CreER\dataset_regression_3C_I2I_100\test\label
+        PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/test/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/test/label
         IN_MEMORY: False
         LOAD_GT: True
         PADDING: (4,8,8)
