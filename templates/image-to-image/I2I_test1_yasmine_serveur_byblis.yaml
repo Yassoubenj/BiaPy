@@ -66,8 +66,8 @@ TRAIN:
     OPTIMIZER: ADAMW
     LR: 1.E-4
     BATCH_SIZE: 3
-    EPOCHS: 400
-    PATIENCE: 30
+    EPOCHS: 500
+    PATIENCE: 100
     LR_SCHEDULER:
         NAME: 'warmupcosine'
         MIN_LR: 1.E-6
