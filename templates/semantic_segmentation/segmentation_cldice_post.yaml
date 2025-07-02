@@ -19,7 +19,7 @@ DATA:
         FROM_TRAIN: True
         SPLIT_TRAIN: 0.2
     TEST:
-        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000l/test/raw
+        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/test/raw
         GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/test/label
         IN_MEMORY: True
         LOAD_GT: True
