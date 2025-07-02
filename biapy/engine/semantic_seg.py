@@ -16,8 +16,7 @@ from biapy.engine.metrics import (
     DiceLoss,
     SoftclDiceLoss,
     CLDice,
-    SoftclDiceLoss3D,
-    SoftDiceclDiceLoss
+    SoftclDiceLoss3D
     ) 
 from biapy.data.dataset import PatchCoords
 
