@@ -14,7 +14,6 @@ from biapy.engine.metrics import (
     CrossEntropyLoss_wrapper,
     DiceBCELoss,
     DiceLoss,
-    SoftclDiceLoss,
     CLDice,
     SoftclDiceLoss3D
     ) 
