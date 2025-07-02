@@ -932,28 +932,6 @@ class SoftDiceclDiceLoss(_Loss):
         return (1.0 - self.alpha) * dice_loss + self.alpha * cldice_loss
 
 
-         skel_pred = soft_skel(inputs, self.iter)
-        skel_true = soft_skel(targets, self.iter)
-        print(torch.unique(skel_true), skel_true.shape)
-        print(torch.unique(skel_pred), skel_pred.shape)
-        #même shape que le masque ft voir mnt si le skeleton se fait bien ? faut qu'on calcule les différences en appliquant un seuil
-        # Aplatir tous les tenseurs
-        skel_pred_flat = skel_pred.view(-1)
-        skel_true_flat = skel_true.view(-1)
-        inputs_flat = inputs.view(-1)
-        targets_flat = targets.view(-1)
-
-        # Topological precision
-        tprec_num = (skel_pred_flat * targets_flat).sum()
-        tprec = (tprec_num + self.smooth) / (skel_pred_flat.sum() + self.smooth)
-
-        # Topological sensitivity
-        tsens_num = (skel_true_flat * inputs_flat).sum()
-        tsens = (tsens_num + self.smooth) / (skel_true_flat.sum() + self.smooth)
-
-        # clDice
-        cl_dice = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
-
 class DiceBCELoss(nn.Module):
     """
     Based on `Kaggle <https://www.kaggle.com/code/bigironsphere/loss-function-library-keras-pytorch>`_.
