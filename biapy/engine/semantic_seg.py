@@ -171,7 +171,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
             iter_  = getattr(self.cfg.LOSS, "ITER", 10)
             smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
             #nclass = self.cfg.MODEL.N_CLASSES 
-            self.loss = SoftclDiceLoss(iter_=iter_, smooth=smooth) 
+            self.loss = SoftclDiceLoss3D(iter_=iter_, smooth=smooth) 
         #elif self.cfg.LOSS.TYPE.upper() == "MSE":
             # torch.nn.MSELoss fait la moyenne voxel à voxel
             #self.loss = nn.MSELoss(reduction='mean')
