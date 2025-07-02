@@ -1,5 +1,4 @@
 # BiaPy version: 3.5.13
-# BiaPy version: 3.5.13
 
 SYSTEM:
     NUM_CPUS: -1
@@ -14,10 +13,9 @@ DATA:
         PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/train/raw
         GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/train/label
         IN_MEMORY: True
-        PADDING: (4, 16, 16)
+        #PADDING: (4, 16, 16)
     VAL:
         #FROM_TRAIN: True
-        IN_MEMORY: True
         SPLIT_TRAIN: 0.2
     TEST:
         PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/test/raw
