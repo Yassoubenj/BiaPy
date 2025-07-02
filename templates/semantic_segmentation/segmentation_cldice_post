@@ -1,0 +1,142 @@
+# BiaPy version: 3.5.13
+# BiaPy version: 3.5.13
+
+SYSTEM:
+    NUM_CPUS: -1
+
+PROBLEM:
+    TYPE: SEMANTIC_SEG
+    NDIM: 3D
+
+DATA:
+    PATCH_SIZE: (32, 128, 128, 3)
+    TRAIN:
+        PATH: /home/yasminebenjelloun/dataset/segmentation_data_small/train/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_small/train/label
+        IN_MEMORY: True
+        PADDING: (4, 16, 16)
+    VAL:
+        FROM_TRAIN: True
+        SPLIT_TRAIN: 0.2
+    TEST:
+        PATH: /home/yasminebenjelloun/dataset/segmentation_data_small/test/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_small/test/label
+        IN_MEMORY: False
+        LOAD_GT: True
+        #PADDING: (4,8,8)
+        PADDING: (4, 16, 16)
+    NORMALIZATION:
+    TYPE: 'scale_range'
+        #TYPE: "zero_mean_unit_variance"
+
+
+AUGMENTOR:
+    # ENABLE: True
+    # VFLIP: True
+    # HFLIP: True
+    # ZFLIP: True
+    # DROPOUT: True
+    # GRIDMASK: True
+    # CUTOUT: True
+    ENABLE: True
+    DA_PROB: 0.5
+    CUTOUT: False
+    # GRIDMASK: True
+    CUTBLUR: True
+    # RANDOM_ROT: True
+    VFLIP: True
+    HFLIP: True
+    ZFLIP: True
+    CONTRAST: True
+    CONTRAST_FACTOR: (-0.3, 0.3)
+    BRIGHTNESS: True
+    BRIGHTNESS_FACTOR: (-0.3, 0.3)
+    # GAMMA_CONTRAST: True
+    # GC_GAMMA: (0.5, 1.5)
+    # ELASTIC: True
+    CHANNEL_SHUFFLE: True
+    AFFINE_MODE: 'reflect'
+
+MODEL:
+  ARCHITECTURE: unet
+  FEATURE_MAPS : [8, 16, 32]
+  #FEATURE_MAPS: [16, 32, 64]
+  Z_DOWN: [1, 1, 1]
+  LOAD_CHECKPOINT: False
+
+
+# MODEL:
+#     ARCHITECTURE: attention_unet
+#     FEATURE_MAPS: [48, 64, 80, 96]
+#     Z_DOWN: [1,1,1]
+#     LOAD_CHECKPOINT: False
+
+TRAIN:
+    ENABLE: True
+    # METRICS : ["iou", "cldice"]
+    OPTIMIZER: ADAMW
+    LR: 1.E-4
+    BATCH_SIZE: 3
+    EPOCHS: 500
+    PATIENCE: 100
+    LR_SCHEDULER:
+        NAME: 'warmupcosine'
+        MIN_LR: 1.E-6
+        WARMUP_COSINE_DECAY_EPOCHS: 50
+
+TEST:
+    ENABLE: True
+    FULL_IMG: False
+
+LOSS:
+    TYPE: CLDICE
+
+# SYSTEM:
+#     NUM_CPUS: -1
+
+# PROBLEM:
+#     TYPE: IMAGE_TO_IMAGE
+#     NDIM: 3D
+
+# DATA: 
+#     PATCH_SIZE: (32, 128, 128, 3)
+#     TRAIN:                                                                                                              
+#         PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/train/raw
+#         GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/train/label
+#         IN_MEMORY: True
+#     VAL:
+#         SPLIT_TRAIN: 0.1
+#     TEST:                                                                                                               
+#         PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/test/raw
+#         GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/test/label
+#         IN_MEMORY: True
+#         LOAD_GT: True
+#         PADDING: (4,16,16)
+
+# AUGMENTOR:
+#     ENABLE: False
+#     RANDOM_ROT: True
+#     VFLIP: True
+#     HFLIP: True
+#     ZFLIP: True
+#     CHANNEL_SHUFFLE: True
+
+# MODEL:
+#     ARCHITECTURE: resunet++
+#     FEATURE_MAPS: [16, 32, 64, 128, 256]
+#     LOAD_CHECKPOINT: False
+   
+# TRAIN:
+#     ENABLE: True
+#     OPTIMIZER: ADAMW
+#     LR: 1.E-3
+#     BATCH_SIZE: 2
+#     EPOCHS: 30
+#     PATIENCE: 30
+
+# TEST:
+#     ENABLE: True
+#     AUGMENTATION: False
+#     FULL_IMG: False
+# # LOSS:
+# #     TYPE: MAE

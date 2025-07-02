@@ -65,18 +65,20 @@ def train_one_epoch(
         outputs = model_call_func(batch, is_train=True)
         loss = loss_function(outputs, targets)
 
-        import tifffile
-        for i in range(len(outputs)):
-            tifffile.imwrite(
-                f"output_{i}_step_{step}.tif",
-                outputs[i].detach().cpu().numpy(),
-            )
-            tifffile.imwrite(
-                f"target_{i}_step_{step}.tif",
-                targets[i].detach().cpu().numpy(),
-            )
-            if i > 0:
-                break
+        #code clément pour suivre les images en direct mais quand il lancer pas sur le serveur :
+        
+        # import tifffile
+        # for i in range(len(outputs)):
+        #     tifffile.imwrite(
+        #         f"output_{i}_step_{step}.tif",
+        #         outputs[i].detach().cpu().numpy(),
+        #     )
+        #     tifffile.imwrite(
+        #         f"target_{i}_step_{step}.tif",
+        #         targets[i].detach().cpu().numpy(),
+        #     )
+        #     if i > 0:
+        #         break
 
         loss_value = loss.item()
         if not math.isfinite(loss_value):

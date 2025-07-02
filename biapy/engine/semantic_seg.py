@@ -15,7 +15,9 @@ from biapy.engine.metrics import (
     DiceBCELoss,
     DiceLoss,
     SoftclDiceLoss,
-    CLDice
+    CLDice,
+    SoftclDiceLoss3D,
+    SoftDiceclDiceLoss
     ) 
 from biapy.data.dataset import PatchCoords
 
@@ -168,7 +170,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         elif self.cfg.LOSS.TYPE == "W_CE_DICE":
             self.loss = DiceBCELoss(w_dice=self.cfg.LOSS.WEIGHTS[0], w_bce=self.cfg.LOSS.WEIGHTS[1])
         elif self.cfg.LOSS.TYPE == "CLDICE": #voir paramètre à mettre dans config 
-            iter_  = getattr(self.cfg.LOSS, "ITER", 6)
+            iter_  = getattr(self.cfg.LOSS, "ITER", 10)
             smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
             #nclass = self.cfg.MODEL.N_CLASSES 
             self.loss = SoftclDiceLoss(iter_=iter_, smooth=smooth) 
