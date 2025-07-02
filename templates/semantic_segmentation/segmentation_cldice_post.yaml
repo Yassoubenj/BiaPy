@@ -83,10 +83,15 @@ TRAIN:
         MIN_LR: 1.E-6
         WARMUP_COSINE_DECAY_EPOCHS: 50
 
+# TEST:
+#     ENABLE: True
+#     FULL_IMG: False
+  
 TEST:
     ENABLE: True
-    FULL_IMG: False
-
+    METRICS : ["iou", "cldice"]
+    AUGMENTATION: False
+    FULL_IMG: True
 LOSS:
     TYPE: CLDICE
 
