@@ -16,7 +16,12 @@ DATA:
         #PADDING: (4, 16, 16)
     VAL:
         #FROM_TRAIN: True
-        SPLIT_TRAIN: 0.2
+        #SPLIT_TRAIN: 0.2
+        CROSS_VAL: True               
+        CROSS_VAL_NFOLD: 5          
+        CROSS_VAL_FOLD: 0            # On peut changer ça entre 0, 1, 2, 3, 4 pour chaque run
+        FROM_TRAIN: False  
+        
     TEST:
         PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/test/raw
         GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/test/label
