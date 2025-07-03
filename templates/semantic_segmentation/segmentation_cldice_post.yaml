@@ -15,7 +15,7 @@ DATA:
         IN_MEMORY: True
         #PADDING: (4, 16, 16)
     VAL:
-        #FROM_TRAIN: True
+        FROM_TRAIN: True
         #SPLIT_TRAIN: 0.2
         CROSS_VAL: True               
         FROM_TRAIN: False  
