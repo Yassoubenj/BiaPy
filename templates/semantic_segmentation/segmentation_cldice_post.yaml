@@ -10,8 +10,8 @@ PROBLEM:
 DATA:
     PATCH_SIZE: (32, 128, 128, 3)
     TRAIN:
-        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/train/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/train/label
+        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/label
         IN_MEMORY: True
         #PADDING: (4, 16, 16)
     VAL:
@@ -20,8 +20,8 @@ DATA:
         #FROM_TRAIN: False  
         
     TEST:
-        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/test/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/test/label
+        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/label
         IN_MEMORY: True
         LOAD_GT: True
         #PADDING: (4,8,8)
