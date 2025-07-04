@@ -13,7 +13,6 @@ DATA:
         PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/train/raw
         GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/train/label
         IN_MEMORY: True
-        W_DECAY: 0.0001
         #PADDING: (4, 16, 16)
     VAL:
         #SPLIT_TRAIN: 0.2
@@ -79,6 +78,7 @@ TRAIN:
     BATCH_SIZE: 3
     EPOCHS: 500
     PATIENCE: 100
+    W_DECAY: 0.0001
     LR_SCHEDULER:
         NAME: 'warmupcosine'
         MIN_LR: 1.E-6
