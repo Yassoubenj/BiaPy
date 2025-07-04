@@ -13,9 +13,9 @@ DATA:
         PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/train/raw
         GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_1000/train/label
         IN_MEMORY: True
+        W_DECAY = 1.E-4
         #PADDING: (4, 16, 16)
     VAL:
-        FROM_TRAIN: True
         #SPLIT_TRAIN: 0.2
         CROSS_VAL: True               
         #FROM_TRAIN: False  
@@ -33,10 +33,6 @@ DATA:
 
 
 AUGMENTOR:
-    # ENABLE: True
-    # VFLIP: True
-    # HFLIP: True
-    # ZFLIP: True
     # DROPOUT: True
     # GRIDMASK: True
     # CUTOUT: True
@@ -45,7 +41,7 @@ AUGMENTOR:
     CUTOUT: False
     # GRIDMASK: True
     CUTBLUR: True
-    # RANDOM_ROT: True
+    RANDOM_ROT: True
     VFLIP: True
     HFLIP: True
     ZFLIP: True
@@ -64,7 +60,7 @@ MODEL:
   FEATURE_MAPS : [8, 16, 32]
   #FEATURE_MAPS: [16, 32, 64]
   Z_DOWN: [1, 1]
-  DROPOUT_VALUES: [0.1, 0.1, 0.2]
+  DROPOUT_VALUES: [0.2, 0.3, 0.4]
 
   LOAD_CHECKPOINT: False
 
