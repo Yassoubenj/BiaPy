@@ -95,7 +95,7 @@ TEST:
     FULL_IMG: False
 
 LOSS:
-    TYPE: CLDICE
+    TYPE: DICE
 
 # SYSTEM:
 #     NUM_CPUS: -1
