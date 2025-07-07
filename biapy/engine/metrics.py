@@ -531,7 +531,7 @@ class DiceLoss(nn.Module): #mais à quoi correspond ces target dans biapy ? a qu
     def __init__(self):
         super(DiceLoss, self).__init__()
 
-    def forward(self, inputs, targets, smooth=1):
+    def forward(self, inputs, targets, smooth=0.0000001): #au lieu de 1 
         #print("HERE DICE LOSS", np.unique(inputs), np.unique(targets))
         inputs = F.sigmoid(inputs)
         #print(np.unique(inputs), np.unique(targets))
@@ -930,7 +930,6 @@ class SoftDiceclDiceLoss(_Loss):
         )
         cldice_loss = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
         return (1.0 - self.alpha) * dice_loss + self.alpha * cldice_loss
-
 
 class DiceBCELoss(nn.Module):
     """
