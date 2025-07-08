@@ -1122,6 +1122,9 @@ class Config:
         #       * "W_MAE_SSIM": MAE and SSIM (with a weight term on each one that must sum 1).
         #       * "W_MSE_SSIM": MSE and SSIM (with a weight term on each one that must sum 1).
         _C.LOSS.TYPE = ""
+        _C.LOSS.ITER = 10
+        _C.LOSS.SMOOTH = 0.0000001
+
         # Weights to be applied in multiple loss combination cases. They must sum 1. E.g. [0.3, 0.7].
         _C.LOSS.WEIGHTS = [0.66, 0.34]
         # # weight for cldice soft skel # add by Yasmine
