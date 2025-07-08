@@ -96,6 +96,8 @@ TEST:
 
 LOSS:
     TYPE: CLDICE
+    ITER : 10
+    SMOOTH : 0.0000001
 
 # SYSTEM:
 #     NUM_CPUS: -1
