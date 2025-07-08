@@ -553,7 +553,7 @@ class SoftDiceClDiceLoss3D(nn.Module):
         super().__init__()
         self.alpha = alpha
         self.cldice = SoftclDiceLoss3D(iter_=iter_, smooth=smooth)
-        self.dice   = DiceLoss(smooth=smooth)
+        self.dice   = DiceLoss()
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """
