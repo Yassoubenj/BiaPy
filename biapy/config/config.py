@@ -1124,6 +1124,7 @@ class Config:
         _C.LOSS.TYPE = ""
         _C.LOSS.ITER = 10
         _C.LOSS.SMOOTH = 0.0000001
+        _C.LOSS.ALPHA = 0.5
 
         # Weights to be applied in multiple loss combination cases. They must sum 1. E.g. [0.3, 0.7].
         _C.LOSS.WEIGHTS = [0.66, 0.34]

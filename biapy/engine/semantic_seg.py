@@ -15,7 +15,8 @@ from biapy.engine.metrics import (
     DiceBCELoss,
     DiceLoss,
     CLDice,
-    SoftclDiceLoss3D
+    SoftclDiceLoss3D,
+    SoftDiceClDiceLoss3D,
     ) 
 from biapy.data.dataset import PatchCoords
 
@@ -170,11 +171,14 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         elif self.cfg.LOSS.TYPE == "CLDICE": #voir paramètre à mettre dans config 
             iter_  = getattr(self.cfg.LOSS, "ITER", 10)
             smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
-            #nclass = self.cfg.MODEL.N_CLASSES 
-            self.loss = SoftclDiceLoss3D(iter_=iter_, smooth=smooth) 
-        #elif self.cfg.LOSS.TYPE.upper() == "MSE":
-            # torch.nn.MSELoss fait la moyenne voxel à voxel
-            #self.loss = nn.MSELoss(reduction='mean')
+            alpha = getattr(self.cfg.LOSS, "ALPHA", 0.5)
+            #nclass = self.cfg.MODEL.N_CLASSES
+            self.loss = SoftDiceClDiceLoss3D(alpha=alpha, iter_=iter_, smooth=smooth)
+        # elif self.cfg.LOSS.TYPE == "CLDICE": #voir paramètre à mettre dans config
+        #     iter_  = getattr(self.cfg.LOSS, "ITER", 10)
+        #     smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
+        #     #nclass = self.cfg.MODEL.N_CLASSES 
+        #     self.loss = SoftclDiceLoss3D(iter_=iter_, smooth=smooth) 
         super().define_metrics()
 
 
