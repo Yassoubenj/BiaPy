@@ -565,53 +565,6 @@ class SoftDiceClDiceLoss3D(nn.Module):
         #print("dice loss:", loss_dice.item(), "cldice loss:", loss_cl.item())
         return self.alpha * loss_cl + (1.0 - self.alpha) * loss_dice 
 
-def soft_dice(y_true, y_pred):
-    """[function to compute dice loss]
-
-    Args:
-        y_true ([float32]): [ground truth image]
-        y_pred ([float32]): [predicted image]
-
-    Returns:
-        [float32]: [loss value]
-    """
-    smooth = 1
-    y_pred = y_pred.view(-1)
-    y_true = y_true.view(-1)
-    intersection = torch.sum((y_true * y_pred))
-    coeff = (2. *  intersection + smooth) / (torch.sum(y_true) + torch.sum(y_pred) + smooth)
-    return (1. - coeff)
-       
-class SoftDiceclDiceLoss(_Loss):
-    """
-    Combine Soft Dice and Soft clDice losses
-    """
-    def __init__(
-        self, iter_: int =6, alpha: float = 0.5, smooth: float = 1.0
-    ) -> None:
-        super().__init__()
-        self.iter = iter_
-        self.alpha = alpha
-        self.smooth = smooth
-
-    def forward(self, y_true: torch.Tensor, y_pred: torch.Tensor) -> torch.Tensor:
-        y_pred =  F.sigmoid(y_pred)
-        dice_loss = soft_dice(y_true, y_pred)
-        skel_pred = soft_skel(y_pred, self.iter)
-        skel_true = soft_skel(y_true, self.iter)
-        tprec = (
-            torch.sum(torch.multiply(skel_pred, y_true)[:, 1:, ...]) + self.smooth
-        ) / (
-            torch.sum(skel_pred[:, 1:, ...]) + self.smooth
-        )
-        tsens = (
-            torch.sum(torch.multiply(skel_true, y_pred)[:, 1:, ...]) + self.smooth
-        ) / (
-            torch.sum(skel_true[:, 1:, ...]) + self.smooth
-        )
-        cldice_loss = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
-        return (1.0 - self.alpha) * dice_loss + self.alpha * cldice_loss
-
 class DiceBCELoss(nn.Module):
     """
     Based on `Kaggle <https://www.kaggle.com/code/bigironsphere/loss-function-library-keras-pytorch>`_.
@@ -642,53 +595,23 @@ class SoftclDiceBCELoss(nn.Module):
     binary segmentation (1 canal).
 
     Args:
-        w_cldice (float): poids du terme clDice.
-        w_bce    (float): poids du terme BCE.
-        iter_    (int):   nombre d’itérations pour soft_skel().
-        smooth   (float): paramètre de lissage.
+        alpha : décrit le pourcentage de cldice. ( je vais entrainer sans cldice donc que bce et voir et puis faire un 50/50)
     """
-    def __init__(self, w_cldice: float = 0.1, w_bce: float = 0.9,
-                iter_: int = 3, smooth: float = 1.0):
-        super(SoftclDiceBCELoss, self).__init__()
-        self.w_cldice = w_cldice
-        self.w_bce    = w_bce
-        self.iter     = iter_
-        self.smooth   = smooth
+    def __init__(self, alpha: float,
+                 iter_: int, smooth: float):
+        """
+        alpha : poids pour la clDice. La Dice classique aura poids (1-alpha).
+        iter_, smooth : paramètres passés à la SoftclDiceLoss3D.
+        """
+        super().__init__()
+        self.alpha = alpha
+        self.cldice = SoftclDiceLoss3D(iter_=iter_, smooth=smooth)
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         bce = torch.nn.BCEWithLogitsLoss()(inputs, targets)
-        # inputs: logits non bornés → proba [0,1]
-        inputs = F.sigmoid(inputs)
-        inputs = (inputs > 0.5).float()
-        inputs = inputs.to(torch.uint8)
+        loss_cl   = self.cldice(inputs, targets)
+        return self.alpha * loss_cl + (1.0 - self.alpha) * bce
     
-
-        # aplatir pour le BCE
-        inputs_flat  = inputs.view(-1)
-        targets_flat = targets.view(-1)
-
-        # 1) BCE
-        #bce = F.binary_cross_entropy(inputs_flat, targets_flat, reduction="mean")
-        
-
-        # 2) Soft clDice
-        skel_pred     = soft_skel(inputs, self.iter)
-        skel_true     = soft_skel(targets, self.iter)
-        pred_flat_s   = skel_pred.view(-1)
-        true_flat_s   = skel_true.view(-1)
-
-        tprec_num = (pred_flat_s * targets_flat).sum()
-        tprec     = (tprec_num + self.smooth) / (pred_flat_s.sum() + self.smooth)
-
-        tsens_num = (true_flat_s * inputs_flat).sum()
-        tsens     = (tsens_num + self.smooth) / (true_flat_s.sum() + self.smooth)
-
-        cldice_loss = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
-
-        # 3) combinaison
-        loss = self.w_bce * bce + self.w_cldice * cldice_loss
-        return loss
-
 class SoftclDiceFocalLoss(nn.Module):
     """
     Combine Binary Focal Loss (single-channel) and Soft clDice
@@ -763,90 +686,6 @@ class SoftclDiceFocalLoss(nn.Module):
         # 4) combinaison finale
         return self.w_focal  * focal_loss + self.w_cldice * cldice_loss
 
-
-# class SoftclDiceFocalLoss(nn.Module):
-#     """
-#     Combine la Focal Loss binaire et la Soft clDice pour la segmentation Biapy.
-
-#     Args:
-#         w_focal   (float):  poids du terme Focal Loss.
-#         w_cldice  (float):  poids du terme Soft clDice.
-#         iter_     (int):    nombre itérations pour soft_skel().
-#         smooth    (float):  paramètre de lissage pour clDice.
-#         gamma     (float):  exponent de la Focal Loss (>=0).
-#         alpha     (float):  facteur d'équilibrage alpha de la Focal Loss (∈[0,1]) ou None.
-#     """
-#     def __init__(
-#         self,
-#         w_focal: float = 1.0,
-#         w_cldice: float = 0.0,
-#         iter_: int = 3,
-#         smooth: float = 1.0,
-#         gamma: float = 5.0,
-#         #alpha: float = 0.9,
-#     ):
-#         super(SoftclDiceFocalLoss, self).__init__()
-#         self.w_focal  = w_focal
-#         self.w_cldice = w_cldice
-#         self.iter     = iter_
-#         self.smooth   = smooth
-#         self.gamma    = gamma
-#         #self.alpha    = alpha
-
-#     def _sigmoid_focal(self, logits: torch.Tensor, targets: torch.Tensor, alpha: torch.Tensor) -> torch.Tensor:
-#         """
-#         Implementation de la Focal Loss binaire sur logits (non bornés).
-#         """
-    
-#         bce_loss = logits - logits * targets - F.logsigmoid(logits)
-#         # invprobs = log σ(−z) si target=1, log σ(z) si target=0
-#         invprobs = F.logsigmoid(-logits * (targets * 2 - 1))
-#         #loss = (invprobs * self.gamma).exp() * bce_loss
-
-#         # self.alpha = 
-#         # if self.alpha is not None:
-#         #     # alpha si target=1, (1−alpha) si target=0
-#         #     alpha_factor = targets * self.alpha + (1 - targets) * (1 - self.alpha)
-#         #     loss = alpha_factor * loss
-#         modulator = invprobs.mul(self.gamma).exp()
-#         alpha_factor = targets * alpha + (1 - targets) * (1 - alpha)
-#         return alpha_factor * modulator * bce_loss
-
-#     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-#         """
-#         inputs:  logits bruts du réseau, shape (B,1,H,W) ou (B,1,D,H,W)
-#         targets: masques {0,1}, même shape que inputs
-#         """
-#         # 1) Focal Loss
-#         targets_f = targets.float()
-#         ratio = 0.007 #à peu près le rapport de pixel objet sur pixel background noir
-#         #ratio = targets_f.sum() / targets_f.numel()
-#         alpha_dyn = 1.0 - ratio
-
-#         fl = self._sigmoid_focal(inputs, targets_f, alpha_dyn)
-#         focal_loss = fl.mean()
-
-#         # 2) Soft clDice
-#         probs     = torch.sigmoid(inputs)
-#         skel_pred = soft_skel(probs, self.iter)
-#         skel_true = soft_skel(targets_f, self.iter)
-
-#         p_flat = skel_pred.view(-1)
-#         t_flat = skel_true.view(-1)
-#         y_flat = probs.view(-1)
-#         g_flat = targets_f.view(-1)
-
-#         tprec_num = (p_flat * g_flat).sum()
-#         tprec     = (tprec_num + self.smooth) / (p_flat.sum() + self.smooth)
-
-#         tsens_num = (t_flat * y_flat).sum()
-#         tsens     = (tsens_num + self.smooth) / (t_flat.sum() + self.smooth)
-
-#         cldice_loss = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
-
-#         # 3) Combinaison finale
-#         loss = self.w_focal * focal_loss + self.w_cldice * cldice_loss
-#         return loss
 
 class instance_segmentation_loss:
     def __init__(

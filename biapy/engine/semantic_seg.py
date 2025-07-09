@@ -17,6 +17,7 @@ from biapy.engine.metrics import (
     CLDice,
     SoftclDiceLoss3D,
     SoftDiceClDiceLoss3D,
+    SoftclDiceBCELoss,
     ) 
 from biapy.data.dataset import PatchCoords
 
@@ -168,16 +169,19 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
             self.loss = DiceLoss()
         elif self.cfg.LOSS.TYPE == "W_CE_DICE":
             self.loss = DiceBCELoss(w_dice=self.cfg.LOSS.WEIGHTS[0], w_bce=self.cfg.LOSS.WEIGHTS[1])
-        elif self.cfg.LOSS.TYPE == "CLDICE": #voir paramètre à mettre dans config 
+        elif self.cfg.LOSS.TYPE == "CLDICE": 
             iter_  = getattr(self.cfg.LOSS, "ITER", 10)
             smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
-            alpha = getattr(self.cfg.LOSS, "ALPHA", 0.5)
-            #nclass = self.cfg.MODEL.N_CLASSES
-            self.loss = SoftDiceClDiceLoss3D(alpha=alpha, iter_=iter_, smooth=smooth)
-        # elif self.cfg.LOSS.TYPE == "CLDICE": #voir paramètre à mettre dans config
+            alpha = getattr(self.cfg.LOSS, "ALPHA", 0.0)
+            self.loss = SoftclDiceBCELoss(alpha=alpha, iter_=iter_, smooth=smooth) 
+            #CLDICE - DICE :
+            # iter_  = getattr(self.cfg.LOSS, "ITER", 10)
+            # smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
+            # alpha = getattr(self.cfg.LOSS, "ALPHA", 0.5)
+            # self.loss = SoftDiceClDiceLoss3D(alpha=alpha, iter_=iter_, smooth=smooth)
+            #CLDICE - ALONE :
         #     iter_  = getattr(self.cfg.LOSS, "ITER", 10)
         #     smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
-        #     #nclass = self.cfg.MODEL.N_CLASSES 
         #     self.loss = SoftclDiceLoss3D(iter_=iter_, smooth=smooth) 
         super().define_metrics()
 
