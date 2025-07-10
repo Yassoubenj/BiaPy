@@ -592,7 +592,7 @@ class DiceBCELoss(nn.Module):
 class SoftclDiceBCELoss(nn.Module):
     """
     Combines Binary Cross-Entropy and Soft clDice loss for
-    binary segmentation (1 canal).
+    binary segmentation.
 
     Args:
         alpha : décrit le pourcentage de cldice. ( je vais entrainer sans cldice donc que bce et voir et puis faire un 50/50)
@@ -600,7 +600,7 @@ class SoftclDiceBCELoss(nn.Module):
     def __init__(self, alpha: float,
                  iter_: int, smooth: float):
         """
-        alpha : poids pour la clDice. La Dice classique aura poids (1-alpha).
+        alpha : poids pour la clDice. 
         iter_, smooth : paramètres passés à la SoftclDiceLoss3D.
         """
         super().__init__()
@@ -1319,3 +1319,4 @@ class SSIM_wrapper:
             Loss value.
         """
         return 1 - self.loss(y_pred, y_true)
+    
