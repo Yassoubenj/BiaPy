@@ -81,8 +81,8 @@ TRAIN:
     W_DECAY: 1e-4
     LR_SCHEDULER:
         NAME: 'reduceonplateau'
-        FACTOR: 0.5
-        PATIENCE: 10
+        REDUCEONPLATEAU_FACTOR: 0.5
+        REDUCEONPLATEAU_PATIENCE: 10
         MIN_LR: 1e-6
     # LR_SCHEDULER:
     #     NAME: 'warmupcosine'
