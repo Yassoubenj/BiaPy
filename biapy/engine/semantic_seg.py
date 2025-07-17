@@ -177,7 +177,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
             #CLDICE - DICE :
             iter_  = getattr(self.cfg.LOSS, "ITER", 10)
             smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
-            alpha = getattr(self.cfg.LOSS, "ALPHA", 0.8)
+            alpha = getattr(self.cfg.LOSS, "ALPHA", 0.0)
             self.loss = SoftDiceClDiceLoss3D(alpha=alpha, iter_=iter_, smooth=smooth)
             #CLDICE - ALONE :
         #     iter_  = getattr(self.cfg.LOSS, "ITER", 10)

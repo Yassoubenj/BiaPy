@@ -56,8 +56,8 @@ AUGMENTOR:
 
 MODEL:
   ARCHITECTURE: unet
-  FEATURE_MAPS : [8, 16, 32]
-  #FEATURE_MAPS: [16, 32, 64]
+  #FEATURE_MAPS : [8, 16, 32] #augmenter à : 16,32,64
+  FEATURE_MAPS: [16, 32, 64]
   Z_DOWN: [1, 1] #il faut pas appliquer z_down car données anisotrope : donc on fixe à 1,1
   DROPOUT_VALUES: [0.2, 0.3, 0.4]
 
@@ -83,7 +83,7 @@ TRAIN:
         NAME: 'reduceonplateau'
         REDUCEONPLATEAU_FACTOR: 0.5
         REDUCEONPLATEAU_PATIENCE: 10
-        MIN_LR: 1e-6
+        MIN_LR: 1e-6 #à modifier
     # LR_SCHEDULER:
     #     NAME: 'warmupcosine'
     #     MIN_LR: 1.E-6
@@ -103,7 +103,7 @@ LOSS:
     TYPE: CLDICE
     ITER : 10
     SMOOTH : 0.0000001
-    ALPHA: 0.8
+    ALPHA: 0.0
 
 # SYSTEM:
 #     NUM_CPUS: -1
