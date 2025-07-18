@@ -55,9 +55,9 @@ AUGMENTOR:
     AFFINE_MODE: 'reflect'
 
 MODEL:
-  ARCHITECTURE: unet
+  ARCHITECTURE: attention_unet #à tester : resunet++'
   #FEATURE_MAPS : [8, 16, 32] #augmenter à : 16,32,64
-  FEATURE_MAPS: [16, 32, 64]
+  FEATURE_MAPS: [8, 16, 32]
   Z_DOWN: [1, 1] #il faut pas appliquer z_down car données anisotrope : donc on fixe à 1,1
   DROPOUT_VALUES: [0.2, 0.3, 0.4]
 
@@ -77,7 +77,7 @@ TRAIN:
     LR: 1.E-4 #à jouer d'autant plus
     BATCH_SIZE: 10 #On modifie car dans le cldice_dice y'avait plus d'overfitting avec ce batch-size
     EPOCHS: 500
-    PATIENCE: 100 #à modifier 
+    PATIENCE: 30 
     W_DECAY: 1e-4
     LR_SCHEDULER:
         NAME: 'reduceonplateau'
