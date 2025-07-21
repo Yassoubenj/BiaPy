@@ -58,7 +58,7 @@ MODEL:
     ARCHITECTURE: resunet
     FEATURE_MAPS: [48, 64, 80, 96]
     Z_DOWN: [1,1,1]
-    LOAD_CHECKPOINT: True
+    LOAD_CHECKPOINT: False
 
 TRAIN:
     ENABLE: False
