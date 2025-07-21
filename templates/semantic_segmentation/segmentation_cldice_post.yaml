@@ -101,7 +101,7 @@ TEST:
 
 LOSS:
     TYPE: W_CE_DICE
-    _C.LOSS.WEIGHTS: [0.5, 0.5]
+    WEIGHTS: [0.5, 0.5]
     # TYPE: CLDICE
     # ITER : 10
     # SMOOTH : 0.0000001
