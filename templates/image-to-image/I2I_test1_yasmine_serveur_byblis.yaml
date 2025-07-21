@@ -11,15 +11,15 @@ PROBLEM:
 DATA:
     PATCH_SIZE: (32, 128, 128, 3)
     TRAIN:
-        PATH: /home/yasminebenjelloun/dataset/regression_data_small/train/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/regression_data_small/train/label
+        PATH: /home/yasminebenjelloun/dataset/regression_data_10000/train/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/regression_data_10000/train/label
         IN_MEMORY: True
     VAL:
         FROM_TRAIN: True
         SPLIT_TRAIN: 0.2
     TEST:
-        PATH: /home/yasminebenjelloun/dataset/regression_data_small/test/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/regression_data_small/test/label
+        PATH: /home/yasminebenjelloun/dataset/regression_data_10000/test/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/regression_data_10000/test/label
         IN_MEMORY: False
         LOAD_GT: True
         PADDING: (4,8,8)
@@ -58,20 +58,20 @@ MODEL:
     ARCHITECTURE: resunet
     FEATURE_MAPS: [48, 64, 80, 96]
     Z_DOWN: [1,1,1]
-    LOAD_CHECKPOINT: False
+    LOAD_CHECKPOINT: True
 
 TRAIN:
-    ENABLE: True
+    ENABLE: False
     # METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
     LR: 1.E-4
     BATCH_SIZE: 3
     EPOCHS: 500
-    PATIENCE: 100
+    PATIENCE: 30
     LR_SCHEDULER:
         NAME: 'warmupcosine'
         MIN_LR: 1.E-6
-        WARMUP_COSINE_DECAY_EPOCHS: 50
+        WARMUP_COSINE_DECAY_EPOCHS: 20
 
 TEST:
     ENABLE: True
