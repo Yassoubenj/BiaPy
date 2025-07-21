@@ -61,17 +61,17 @@ MODEL:
     LOAD_CHECKPOINT: False
 
 TRAIN:
-    ENABLE: False
+    ENABLE: True
     # METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
     LR: 1.E-4
     BATCH_SIZE: 3
     EPOCHS: 500
-    PATIENCE: 30
+    PATIENCE: 100
     LR_SCHEDULER:
         NAME: 'warmupcosine'
         MIN_LR: 1.E-6
-        WARMUP_COSINE_DECAY_EPOCHS: 20
+        WARMUP_COSINE_DECAY_EPOCHS: 50
 
 TEST:
     ENABLE: True
