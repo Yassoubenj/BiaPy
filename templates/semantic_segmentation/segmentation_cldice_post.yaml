@@ -100,13 +100,12 @@ TEST:
     FULL_IMG: False
 
 LOSS:
-    TYPE: DICE
     #TYPE: W_CE_DICE
     #WEIGHTS: [0.5, 0.5]
-    # TYPE: CLDICE
-    # ITER : 10
-    # SMOOTH : 0.0000001
-    # ALPHA: 0.0
+    TYPE: CLDICE
+    ITER : 10
+    SMOOTH : 0.0000001
+    ALPHA: 0.0
 
 # SYSTEM:
 #     NUM_CPUS: -1
