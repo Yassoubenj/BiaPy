@@ -1,0 +1,82 @@
+# BiaPy version: 3.5.13
+# BiaPy version: 3.5.13
+
+SYSTEM:
+    NUM_CPUS: -1
+
+PROBLEM:
+    TYPE: IMAGE_TO_IMAGE
+    NDIM: 3D
+
+DATA:
+    PATCH_SIZE: (32, 128, 128, 3)
+    TRAIN:
+        PATH: /home/yasminebenjelloun/dataset/regression_data_10000/train/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/regression_data_10000/train/label
+        IN_MEMORY: True
+    VAL:
+        FROM_TRAIN: True
+        SPLIT_TRAIN: 0.2
+    TEST:
+        PATH: /home/yasminebenjelloun/dataset/regression_data_10000/test/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/regression_data_10000/test/label
+        IN_MEMORY: False
+        LOAD_GT: True
+        PADDING: (4,8,8)
+    NORMALIZATION:
+        TYPE: "zero_mean_unit_variance"
+
+
+AUGMENTOR:
+    # ENABLE: True
+    # VFLIP: True
+    # HFLIP: True
+    # ZFLIP: True
+    # DROPOUT: True
+    # GRIDMASK: True
+    # CUTOUT: True
+    ENABLE: True
+    DA_PROB: 0.5
+    CUTOUT: False
+    # GRIDMASK: True
+    CUTBLUR: True
+    # RANDOM_ROT: True
+    VFLIP: True
+    HFLIP: True
+    ZFLIP: True
+    CONTRAST: True
+    CONTRAST_FACTOR: (-0.3, 0.3)
+    BRIGHTNESS: True
+    BRIGHTNESS_FACTOR: (-0.3, 0.3)
+    # GAMMA_CONTRAST: True
+    # GC_GAMMA: (0.5, 1.5)
+    # ELASTIC: True
+    CHANNEL_SHUFFLE: True
+    AFFINE_MODE: 'reflect'
+
+MODEL:
+    ARCHITECTURE: unet
+    FEATURE_MAPS: [16, 32, 64, 128, 256]
+    Z_DOWN: [1,1,1,1]
+    LOAD_CHECKPOINT: False
+
+TRAIN:
+    ENABLE: True
+    OPTIMIZER: ADAMW
+    LR: 0.002
+    BATCH_SIZE: 1
+    EPOCHS: 500
+    PATIENCE: 100
+    W_DECAY: 0.00001
+    LR_SCHEDULER:
+        NAME: 'reduceonplateau'
+        REDUCEONPLATEAU_FACTOR: 0.1
+        REDUCEONPLATEAU_PATIENCE: 10
+        MIN_LR: 1e-6
+
+TEST:
+    ENABLE: True
+    FULL_IMG: False
+
+LOSS:
+    TYPE: MSE
