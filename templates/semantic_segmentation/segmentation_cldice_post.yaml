@@ -20,8 +20,8 @@ DATA:
         #FROM_TRAIN: False  
         
     TEST:
-        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/label
+        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/raw
+        GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/label
         IN_MEMORY: True
         LOAD_GT: True
         #PADDING: (4,8,8)
@@ -30,6 +30,8 @@ DATA:
         TYPE: 'scale_range'
         #TYPE: "zero_mean_unit_variance"
 
+PATHS:
+  CHECKPOINT_FILE: /home/yasminebenjelloun/BiaPy/result/Segmentation_Dice_Batch10_data_10000/checkpoints/Segmentation_Dice_Batch10_data_10000_1-checkpoint-best.pth
 
 AUGMENTOR:
     # DROPOUT: True
@@ -55,6 +57,7 @@ AUGMENTOR:
     AFFINE_MODE: 'reflect'
 
 MODEL:
+  LOAD_CHECKPOINT: True
   ARCHITECTURE: unet #à tester : resunet++'
   #FEATURE_MAPS : [8, 16, 32] #augmenter à : 16,32,64
   FEATURE_MAPS: [8, 16, 32]
