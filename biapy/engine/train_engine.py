@@ -104,7 +104,8 @@ def train_one_epoch(
         metric_logger.update(loss=loss_value)
         loss_value_reduce = all_reduce_mean(loss_value)
         if log_writer:
-            log_writer.update(loss=loss_value_reduce, head="loss")
+            log_writer.update(train=loss_value_reduce, head="loss")
+            #log_writer.update(loss=loss_value_reduce, head="loss")
 
         # Update lr in loggers
         max_lr = 0.0
@@ -133,8 +134,8 @@ def evaluate(
     epoch: int,
     data_loader: DataLoader,
     lr_scheduler: Optional[Scheduler] = None,
+    log_writer: Optional['TensorboardLogger'] = None,  # <-- Ajout ici
 ):
-
     # Ensure correct order of each epoch info by adding loss first
     metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter("loss", SmoothedValue())
@@ -163,11 +164,68 @@ def evaluate(
 
     print("[Val] averaged stats:", metric_logger)
 
-    # Apply reduceonplateau scheduler if the global validation has been reduced
+    # Log validation metrics to TensorBoard
+    if log_writer:
+        log_writer.set_step(epoch)
+        for key, meter in metric_logger.meters.items():
+            value = all_reduce_mean(meter.global_avg)
+            log_writer.update(val=value, head=key)  # Ex : head='loss', val=..., => 'loss/val'
+
+    # Apply ReduceLROnPlateau scheduler if configured
     if (
         lr_scheduler
         and isinstance(lr_scheduler, ReduceLROnPlateau)
         and cfg.TRAIN.LR_SCHEDULER.NAME == "reduceonplateau"
     ):
         lr_scheduler.step(metric_logger.meters["loss"].global_avg, epoch=epoch)
+
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+# def evaluate(
+#     cfg: CN,
+#     model: nn.Module | nn.parallel.DistributedDataParallel,
+#     model_call_func: Callable,
+#     loss_function: Callable,
+#     metric_function: Callable,
+#     prepare_targets: Callable,
+#     epoch: int,
+#     data_loader: DataLoader,
+#     lr_scheduler: Optional[Scheduler] = None,
+# ):
+
+#     # Ensure correct order of each epoch info by adding loss first
+#     metric_logger = MetricLogger(delimiter="  ")
+#     metric_logger.add_meter("loss", SmoothedValue())
+#     header = "Epoch: [{}]".format(epoch + 1)
+
+#     # Switch to evaluation mode
+#     model.eval()
+
+#     for batch in metric_logger.log_every(data_loader, 10, header):
+#         # Gather inputs
+#         images = batch[0]
+#         targets = batch[1]
+#         targets = prepare_targets(targets, images)
+
+#         # Pass the images through the model
+#         outputs = model_call_func(images, is_train=True)
+#         loss = loss_function(outputs, targets)
+
+#         # Calculate the metrics
+#         metric_function(outputs, targets, metric_logger=metric_logger)
+
+#         metric_logger.update(loss=loss.item())
+
+#     # Gather the stats from all processes
+#     metric_logger.synchronize_between_processes()
+
+#     print("[Val] averaged stats:", metric_logger)
+
+#     # Apply reduceonplateau scheduler if the global validation has been reduced
+#     if (
+#         lr_scheduler
+#         and isinstance(lr_scheduler, ReduceLROnPlateau)
+#         and cfg.TRAIN.LR_SCHEDULER.NAME == "reduceonplateau"
+#     ):
+#         lr_scheduler.step(metric_logger.meters["loss"].global_avg, epoch=epoch)
+#     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
