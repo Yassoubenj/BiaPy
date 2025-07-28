@@ -140,6 +140,7 @@ def evaluate(
     metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter("loss", SmoothedValue())
     header = "Epoch: [{}]".format(epoch + 1)
+    print("[DEBUG] log_writer is:", log_writer)
 
     # Switch to evaluation mode
     model.eval()
@@ -169,7 +170,7 @@ def evaluate(
         log_writer.set_step(epoch)
         for key, meter in metric_logger.meters.items():
             value = all_reduce_mean(meter.global_avg)
-            log_writer.update(val=value, head=key)  # Ex : head='loss', val=..., => 'loss/val'
+            log_writer.update(val=value, head=key)  
 
     # Apply ReduceLROnPlateau scheduler if configured
     if (
