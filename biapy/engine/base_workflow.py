@@ -825,6 +825,7 @@ class Base_Workflow(metaclass=ABCMeta):
                     )
 
             # Validation
+
             if self.val_generator:
                 test_stats = evaluate(
                     self.cfg,
@@ -836,7 +837,19 @@ class Base_Workflow(metaclass=ABCMeta):
                     epoch=epoch,
                     data_loader=self.val_generator,
                     lr_scheduler=self.lr_scheduler,
+                    log_writer=self.log_writer  
                 )
+            #     test_stats = evaluate(
+            #         self.cfg,
+            #         model=self.model,
+            #         model_call_func=self.model_call_func,
+            #         loss_function=self.loss,
+            #         metric_function=self.metric_calculation,
+            #         prepare_targets=self.prepare_targets,
+            #         epoch=epoch,
+            #         data_loader=self.val_generator,
+            #         lr_scheduler=self.lr_scheduler,
+            #     )
 
                 # Save checkpoint is val loss improved
                 if test_stats["loss"] < self.val_best_loss:
