@@ -76,7 +76,7 @@ TRAIN:
     OPTIMIZER: ADAMW
     LR: 1.E-5 #à jouer d'autant plus
     BATCH_SIZE: 10 #On modifie car dans le cldice_dice y'avait plus d'overfitting avec ce batch-size
-    EPOCHS: 500
+    EPOCHS: 2
     PATIENCE: 30 
     W_DECAY: 1e-4
     LR_SCHEDULER:
