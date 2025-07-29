@@ -77,7 +77,7 @@ TRAIN:
     METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
     LR: 1.E-4 
-    BATCH_SIZE: 32 
+    BATCH_SIZE: 24 
     EPOCHS: 500
     PATIENCE: 30 
     W_DECAY: 1e-4
