@@ -76,8 +76,8 @@ TRAIN:
     ENABLE: True
     METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
-    LR: 1.E-4 
-    BATCH_SIZE: 24 
+    LR: 5.E-4 
+    BATCH_SIZE: 10
     EPOCHS: 500
     PATIENCE: 30 
     W_DECAY: 1e-4
@@ -107,7 +107,7 @@ LOSS:
     TYPE: CLDICE
     ITER : 10
     SMOOTH : 0.0000001
-    ALPHA: 0.8
+    ALPHA: 0.0
 
 # SYSTEM:
 #     NUM_CPUS: -1
