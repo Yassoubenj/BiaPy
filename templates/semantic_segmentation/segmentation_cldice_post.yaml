@@ -58,7 +58,7 @@ AUGMENTOR:
 
 MODEL:
   #LOAD_CHECKPOINT: True
-  ARCHITECTURE: unet 
+  ARCHITECTURE: resunet++ 
   FEATURE_MAPS: [8, 16, 32]
   Z_DOWN: [1, 1] #il faut pas appliquer z_down car données anisotrope : donc on fixe à 1,1
   DROPOUT_VALUES: [0.2, 0.3, 0.4]
@@ -76,7 +76,7 @@ TRAIN:
     ENABLE: True
     METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
-    LR: 5.E-4 
+    LR: 1.E-4 
     BATCH_SIZE: 10
     EPOCHS: 500
     PATIENCE: 30 
