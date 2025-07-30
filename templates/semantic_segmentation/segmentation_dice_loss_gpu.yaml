@@ -1,0 +1,72 @@
+SYSTEM:
+  NUM_CPUS: -1
+
+PROBLEM:
+  TYPE: SEMANTIC_SEG
+  NDIM: 3D
+
+DATA:
+  PATCH_SIZE: (32, 128, 128, 3)
+  TRAIN:
+    PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/raw
+    GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/label
+    IN_MEMORY: True
+  VAL:
+    CROSS_VAL: True
+  TEST:
+    PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/raw
+    GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/label
+    IN_MEMORY: True
+    LOAD_GT: True
+    PADDING: (4, 16, 16)
+  NORMALIZATION:
+    TYPE: 'scale_range'
+
+AUGMENTOR:
+  ENABLE: True
+  DA_PROB: 0.5
+  RANDOM_ROT: True
+  VFLIP: True
+  HFLIP: True
+  ZFLIP: True
+  CONTRAST: True
+  CONTRAST_FACTOR: (-0.15, 0.15)
+  BRIGHTNESS: True
+  BRIGHTNESS_FACTOR: (-0.15, 0.15)
+  GAMMA_CONTRAST: True
+  CHANNEL_SHUFFLE: False
+  CUTBLUR: False
+  AFFINE_MODE: 'reflect'
+
+MODEL:
+  ARCHITECTURE: unet
+  FEATURE_MAPS: [16, 32, 64]
+  Z_DOWN: [1, 1]
+  DROPOUT_VALUES: [0.1, 0.1, 0.2]
+  LOAD_CHECKPOINT: False
+
+TRAIN:
+  ENABLE: True
+  METRICS: ["iou", "cldice"]
+  OPTIMIZER: ADAMW
+  LR: 1.0e-4
+  BATCH_SIZE: 7
+  EPOCHS: 300
+  PATIENCE: 30
+  W_DECAY: 5.0e-4
+  LR_SCHEDULER:
+    NAME: 'reduceonplateau'
+    REDUCEONPLATEAU_FACTOR: 0.5
+    REDUCEONPLATEAU_PATIENCE: 15
+    MIN_LR: 1.0e-6
+
+TEST:
+  ENABLE: True
+  METRICS: ["iou", "cldice"]
+  AUGMENTATION: False
+  FULL_IMG: False
+
+LOSS:
+  TYPE: W_CE_DICE
+  WEIGHTS: [0.7, 0.3]   
+  SMOOTH: 1.0e-5
