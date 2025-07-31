@@ -55,7 +55,7 @@ AUGMENTOR:
     AFFINE_MODE: 'reflect'
 
 MODEL:
-    ARCHITECTURE: resunet
+    ARCHITECTURE: resunet++
     FEATURE_MAPS: [48, 64, 80, 96]
     Z_DOWN: [1,1,1]
     LOAD_CHECKPOINT: False
