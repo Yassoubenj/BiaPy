@@ -76,20 +76,20 @@ TRAIN:
     ENABLE: True
     METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
-    LR: 3.E-4 
+    LR: 1.E-4 
     BATCH_SIZE: 10
-    EPOCHS: 500
-    PATIENCE: 30 
+    EPOCHS: 300
+    PATIENCE: 20 
     W_DECAY: 1e-4
-    LR_SCHEDULER:
-        NAME: 'reduceonplateau'
-        REDUCEONPLATEAU_FACTOR: 0.5
-        REDUCEONPLATEAU_PATIENCE: 10
-        MIN_LR: 1e-6 
     # LR_SCHEDULER:
-    #     NAME: 'warmupcosine'
-    #     MIN_LR: 1.E-6
-    #     WARMUP_COSINE_DECAY_EPOCHS: 30
+    #     NAME: 'reduceonplateau'
+    #     REDUCEONPLATEAU_FACTOR: 0.5
+    #     REDUCEONPLATEAU_PATIENCE: 10
+    #     MIN_LR: 1e-6 
+    LR_SCHEDULER:
+        NAME: 'warmupcosine'
+        MIN_LR: 1.E-6
+        WARMUP_COSINE_DECAY_EPOCHS: 30
 
 # TEST:
 #     ENABLE: True
