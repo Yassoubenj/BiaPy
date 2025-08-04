@@ -79,7 +79,7 @@ TRAIN:
     LR: 1.E-4 
     BATCH_SIZE: 10
     EPOCHS: 300
-    PATIENCE: 20 
+    PATIENCE: 30 
     W_DECAY: 1e-4
     LR_SCHEDULER:
         NAME: 'reduceonplateau'
@@ -102,9 +102,9 @@ TEST:
     FULL_IMG: False
 
 LOSS:
-    TYPE: W_CE_DICE
-    WEIGHTS: [0.5, 0.5]
-    # TYPE: CLDICE
+    # TYPE: W_CE_DICE
+    # WEIGHTS: [0.5, 0.5]
+    TYPE: CLDICE
     # ITER : 10
     # SMOOTH : 0.0000001
     # ALPHA: 0.0

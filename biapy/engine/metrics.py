@@ -611,6 +611,42 @@ class SoftclDiceBCELoss(nn.Module):
         bce = torch.nn.BCEWithLogitsLoss()(inputs, targets)
         loss_cl   = self.cldice(inputs, targets)
         return self.alpha * loss_cl + (1.0 - self.alpha) * bce
+
+class SoftclDiceDiceBCELoss(nn.Module):
+    """
+    Combines soft clDice, Dice and BCE-with-logits losses.
+
+    Args:
+        alpha_cldice: poids pour la clDice.
+        alpha_dice:   poids pour la Dice classique.
+                     Le poids pour le BCE sera computé comme 1 - alpha_cldice - alpha_dice.
+                     Il faut que alpha_cldice + alpha_dice <= 1. Pour désactiver un terme, mettez son alpha à 0.
+        iter_, smooth: passés à SoftclDiceLoss3D.
+    """
+    def __init__(self, alpha_cldice: float, alpha_dice: float, iter_: int, smooth: float):
+        super().__init__()
+        if not (0.0 <= alpha_cldice <= 1.0) or not (0.0 <= alpha_dice <= 1.0):
+            raise ValueError("alpha_cldice et alpha_dice doivent être dans [0, 1]")
+        if alpha_cldice + alpha_dice > 1.0:
+            raise ValueError("La somme de alpha_cldice et alpha_dice doit être <= 1.0")
+        self.alpha_cldice = alpha_cldice
+        self.alpha_dice = alpha_dice
+        self.alpha_bce = 1.0 - alpha_cldice - alpha_dice
+
+        self.cldice = SoftclDiceLoss3D(iter_=iter_, smooth=smooth)
+        self.dice = DiceLoss()
+        self.bce = nn.BCEWithLogitsLoss()
+
+    def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        loss_cl = self.cldice(inputs, targets)
+        loss_dice = self.dice(inputs, targets)
+        loss_bce = self.bce(inputs, targets)
+        return (
+            self.alpha_cldice * loss_cl
+            + self.alpha_dice * loss_dice
+            + self.alpha_bce * loss_bce
+        )
+
     
 class SoftclDiceFocalLoss(nn.Module):
     """
