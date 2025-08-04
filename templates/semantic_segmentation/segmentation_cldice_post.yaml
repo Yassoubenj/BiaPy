@@ -79,7 +79,7 @@ TRAIN:
     LR: 1.E-4 
     BATCH_SIZE: 10
     EPOCHS: 300
-    PATIENCE: 30 
+    PATIENCE: 20 
     W_DECAY: 1e-4
     LR_SCHEDULER:
         NAME: 'reduceonplateau'
