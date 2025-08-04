@@ -81,15 +81,15 @@ TRAIN:
     EPOCHS: 300
     PATIENCE: 20 
     W_DECAY: 1e-4
-    # LR_SCHEDULER:
-    #     NAME: 'reduceonplateau'
-    #     REDUCEONPLATEAU_FACTOR: 0.5
-    #     REDUCEONPLATEAU_PATIENCE: 10
-    #     MIN_LR: 1e-6 
     LR_SCHEDULER:
-        NAME: 'warmupcosine'
-        MIN_LR: 1.E-6
-        WARMUP_COSINE_DECAY_EPOCHS: 30
+        NAME: 'reduceonplateau'
+        REDUCEONPLATEAU_FACTOR: 0.5
+        REDUCEONPLATEAU_PATIENCE: 10
+        MIN_LR: 1e-6 
+    # LR_SCHEDULER:
+    #     NAME: 'warmupcosine'
+    #     MIN_LR: 1.E-6
+    #     WARMUP_COSINE_DECAY_EPOCHS: 30
 
 # TEST:
 #     ENABLE: True
@@ -102,12 +102,12 @@ TEST:
     FULL_IMG: False
 
 LOSS:
-    #TYPE: W_CE_DICE
-    #WEIGHTS: [0.5, 0.5]
-    TYPE: CLDICE
-    ITER : 10
-    SMOOTH : 0.0000001
-    ALPHA: 0.0
+    TYPE: W_CE_DICE
+    WEIGHTS: [0.5, 0.5]
+    # TYPE: CLDICE
+    # ITER : 10
+    # SMOOTH : 0.0000001
+    # ALPHA: 0.0
 
 # SYSTEM:
 #     NUM_CPUS: -1
