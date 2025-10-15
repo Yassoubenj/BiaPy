@@ -14,6 +14,11 @@ DATA:
         GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/label
         IN_MEMORY: True
         #PADDING: (4, 16, 16)
+        _C.DATA.EXTRACT_RANDOM_PATCH = True
+        _C.DATA.PROBABILITY_MAP = True
+        _C.DATA.W_FOREGROUND = 0.94
+        _C.DATA.W_BACKGROUND = 0.06
+
     VAL:
         #SPLIT_TRAIN: 0.2
         CROSS_VAL: True               
@@ -38,10 +43,8 @@ AUGMENTOR:
     # GRIDMASK: True
     # CUTOUT: True
     ENABLE: True
-    DA_PROB: 0.5
-    CUTOUT: False
     # GRIDMASK: True
-    CUTBLUR: True
+    #CUTBLUR: True
     RANDOM_ROT: True # quels axes à vérifier : x, y, z : 
     VFLIP: True
     HFLIP: True
@@ -51,10 +54,9 @@ AUGMENTOR:
     BRIGHTNESS: True
     BRIGHTNESS_FACTOR: (-0.3, 0.3)
     GAMMA_CONTRAST: True
-    # GC_GAMMA: (0.5, 1.5)
-    # ELASTIC: True
+    GC_GAMMA: (0.5, 1.5)
     CHANNEL_SHUFFLE: True
-    AFFINE_MODE: 'reflect'
+    #AFFINE_MODE: 'reflect'
 
 MODEL:
   #LOAD_CHECKPOINT: True
@@ -81,15 +83,15 @@ TRAIN:
     EPOCHS: 300
     PATIENCE: 20 
     W_DECAY: 1e-4
-    LR_SCHEDULER:
-        NAME: 'reduceonplateau'
-        REDUCEONPLATEAU_FACTOR: 0.5
-        REDUCEONPLATEAU_PATIENCE: 10
-        MIN_LR: 1e-6 
     # LR_SCHEDULER:
-    #     NAME: 'warmupcosine'
-    #     MIN_LR: 1.E-6
-    #     WARMUP_COSINE_DECAY_EPOCHS: 30
+    #     NAME: 'reduceonplateau'
+    #     REDUCEONPLATEAU_FACTOR: 0.5
+    #     REDUCEONPLATEAU_PATIENCE: 10
+    #     MIN_LR: 1e-6 
+    LR_SCHEDULER:
+        NAME: 'warmupcosine'
+        MIN_LR: 1.E-6
+        WARMUP_COSINE_DECAY_EPOCHS: 15
 
 # TEST:
 #     ENABLE: True
@@ -104,57 +106,7 @@ TEST:
 LOSS:
     # TYPE: W_CE_DICE
     # WEIGHTS: [0.5, 0.5]
-    TYPE: CLDICE
+    TYPE: DICE
     # ITER : 10
     # SMOOTH : 0.0000001
     # ALPHA: 0.0
-
-# SYSTEM:
-#     NUM_CPUS: -1
-
-# PROBLEM:
-#     TYPE: IMAGE_TO_IMAGE
-#     NDIM: 3D
-
-# DATA: 
-#     PATCH_SIZE: (32, 128, 128, 3)
-#     TRAIN:                                                                                                              
-#         PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/train/raw
-#         GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/train/label
-#         IN_MEMORY: True
-#     VAL:
-#         SPLIT_TRAIN: 0.1
-#     TEST:                                                                                                               
-#         PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/test/raw
-#         GT_PATH: /home/yasminebenjelloun/dataset/dataset_regression_3C_I2I_100/test/label
-#         IN_MEMORY: True
-#         LOAD_GT: True
-#         PADDING: (4,16,16)
-
-# AUGMENTOR:
-#     ENABLE: False
-#     RANDOM_ROT: True
-#     VFLIP: True
-#     HFLIP: True
-#     ZFLIP: True
-#     CHANNEL_SHUFFLE: True
-
-# MODEL:
-#     ARCHITECTURE: resunet++
-#     FEATURE_MAPS: [16, 32, 64, 128, 256]
-#     LOAD_CHECKPOINT: False
-   
-# TRAIN:
-#     ENABLE: True
-#     OPTIMIZER: ADAMW
-#     LR: 1.E-3
-#     BATCH_SIZE: 2
-#     EPOCHS: 30
-#     PATIENCE: 30
-
-# TEST:
-#     ENABLE: True
-#     AUGMENTATION: False
-#     FULL_IMG: False
-# # LOSS:
-# #     TYPE: MAE
