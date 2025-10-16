@@ -14,10 +14,10 @@ DATA:
         GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/label
         IN_MEMORY: True
         #PADDING: (4, 16, 16)
-        _C.DATA.EXTRACT_RANDOM_PATCH = True
-        _C.DATA.PROBABILITY_MAP = True
-        _C.DATA.W_FOREGROUND = 0.94
-        _C.DATA.W_BACKGROUND = 0.06
+        _C.DATA.EXTRACT_RANDOM_PATCH : True
+        _C.DATA.PROBABILITY_MAP : True
+        _C.DATA.W_FOREGROUND : 0.94
+        _C.DATA.W_BACKGROUND : 0.06
 
     VAL:
         #SPLIT_TRAIN: 0.2
