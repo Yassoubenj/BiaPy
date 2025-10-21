@@ -16,7 +16,7 @@ DATA:
     VAL:
         SPLIT_TRAIN: 0.1
     TEST:                                                                                                               
-        PPATH: /home/yasminebenjelloun/dataset/lucchi3D/data/test/raw
+        PATH: /home/yasminebenjelloun/dataset/lucchi3D/data/test/raw
         GT_PATH: /home/yasminebenjelloun/dataset/lucchi3D/data/test/label
         IN_MEMORY: True
         LOAD_GT: True
