@@ -131,7 +131,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                         threshold=getattr(
                             self.cfg.TRAIN, "CLDICE_THRESHOLD", 0.5
                         )                                  
-                    )
+                    ) 
                 )
                 self.train_metric_names.append("clDice")
                 self.train_metric_best.append("max") 
@@ -171,7 +171,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         elif self.cfg.LOSS.TYPE == "W_CE_DICE":
             self.loss = DiceBCELoss(w_dice=self.cfg.LOSS.WEIGHTS[0], w_bce=self.cfg.LOSS.WEIGHTS[1])
         elif self.cfg.LOSS.TYPE == "CLDICE": 
-            self.loss = SoftclDiceDiceBCELoss(alpha_cldice=0.2, alpha_dice=0.7, iter_=10, smooth=0.0000001)
+            self.loss = SoftclDiceDiceBCELoss(alpha_cldice=1.0, alpha_dice=0.0, iter_=10, smooth=0.0000001)
             #clDICE- BCE :
             # iter_  = getattr(self.cfg.LOSS, "ITER", 10)
             # smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
