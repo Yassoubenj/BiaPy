@@ -43,10 +43,11 @@ MODEL:
 
 TRAIN:
     ENABLE: True
+    METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
     LR: 1.E-3
     BATCH_SIZE: 4
-    EPOCHS: 30
+    EPOCHS: 200
     PATIENCE: 30
     LR_SCHEDULER:
         NAME: 'onecycle'    # use one-cycle learning rate scheduler
