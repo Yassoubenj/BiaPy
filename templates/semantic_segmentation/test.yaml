@@ -35,6 +35,13 @@ AUGMENTOR:
     VFLIP: True
     HFLIP: True
     ZFLIP: True
+    CONTRAST: True
+    CONTRAST_FACTOR: (-0.3, 0.3)
+    BRIGHTNESS: True
+    BRIGHTNESS_FACTOR: (-0.3, 0.3)
+    GAMMA_CONTRAST: True
+    GC_GAMMA: (0.5, 1.5)
+    CHANNEL_SHUFFLE: True
 
 MODEL:
     ARCHITECTURE: resunet
