@@ -66,4 +66,4 @@ TEST:
     METRICS : ["iou", "cldice"]
 
 LOSS:
-    TYPE: DICE
+    TYPE: CLDICE #dice 80% et cldice 20%
