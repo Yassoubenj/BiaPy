@@ -66,4 +66,4 @@ TEST:
     METRICS : ["iou", "cldice"]
 
 LOSS:
-    TYPE: DICE 
+    TYPE: W_CE_DICE
