@@ -531,16 +531,30 @@ class SoftclDiceLoss3D(nn.Module):
         inputs_flat    = inputs.view(-1)
         targets_flat   = targets.view(-1)
 
-        tprec_num = (skel_pred_flat * targets_flat).sum()
+        # ratios de précision/sensibilité topologiques
         tprec_den = skel_pred_flat.sum()
-        tprec = (tprec_num + self.smooth) / (tprec_den + self.smooth)
+        tprec = ( (skel_pred_flat * targets_flat).sum()
+                / tprec_den.clamp_min(self.smooth) )
 
-        tsens_num = (skel_true_flat * inputs_flat).sum()
         tsens_den = skel_true_flat.sum()
-        tsens = (tsens_num + self.smooth) / (tsens_den + self.smooth)
+        tsens = ( (skel_true_flat * inputs_flat).sum()
+                / tsens_den.clamp_min(self.smooth) )
 
-        cldice = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+        # clDice stable numériquement
+        cldice = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens + self.smooth)
         return cldice
+
+
+        # tprec_num = (skel_pred_flat * targets_flat).sum()
+        # tprec_den = skel_pred_flat.sum()
+        # tprec = (tprec_num + self.smooth) / (tprec_den + self.smooth)
+
+        # tsens_num = (skel_true_flat * inputs_flat).sum()
+        # tsens_den = skel_true_flat.sum()
+        # tsens = (tsens_num + self.smooth) / (tsens_den + self.smooth)
+
+        # cldice = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+        #return cldice
 
 
 class SoftDiceClDiceLoss3D(nn.Module):
