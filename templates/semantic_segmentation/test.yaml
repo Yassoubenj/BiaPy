@@ -10,6 +10,10 @@ PROBLEM:
 DATA: 
     #PATCH_SIZE: (80, 80, 80, 1)
     PATCH_SIZE: (32, 128, 128, 3)
+    EXTRACT_RANDOM_PATCH : True
+    PROBABILITY_MAP : True
+    W_FOREGROUND : 0.94
+    W_BACKGROUND : 0.06
     TRAIN:
       PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/raw
       GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/label
