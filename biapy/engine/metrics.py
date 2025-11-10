@@ -499,7 +499,7 @@ class SoftclDiceLoss3D(nn.Module):
         anneal_steps (int): nb de forwards (batches) pour aller de iter_min -> iter_.
                             Si 0, pas d'annealing (on utilise directement iter_).
     """
-    def __init__(self, iter_: int, smooth: float, iter_min: int = 2, anneal_steps: int = 0):
+    def __init__(self, iter_: int, smooth: float, iter_min: int, anneal_steps: int):
         super().__init__()
         self.iter_max = int(iter_)
         self.iter_min = int(iter_min)
