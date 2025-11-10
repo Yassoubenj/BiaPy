@@ -170,8 +170,15 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
             self.loss = DiceLoss()
         elif self.cfg.LOSS.TYPE == "W_CE_DICE":
             self.loss = DiceBCELoss(w_dice=self.cfg.LOSS.WEIGHTS[0], w_bce=self.cfg.LOSS.WEIGHTS[1])
-        elif self.cfg.LOSS.TYPE == "CLDICE": 
-            self.loss = SoftclDiceDiceBCELoss(alpha_cldice=1.0, alpha_dice=0.0, iter_=2, smooth=0.0000001)
+        elif self.cfg.LOSS.TYPE == "CLDICE":
+            self.loss = SoftclDiceLoss3D(
+                iter_=20,          # valeur finale (iter_max)
+                smooth=1e-7,       # epsilon numérique
+                iter_min=3,        # squelette "épais" au début
+                anneal_steps=54000 # ~30 epochs si ~1800 batchs/epoch
+            )
+        #elif self.cfg.LOSS.TYPE == "CLDICE": 
+        #    self.loss = SoftclDiceDiceBCELoss(alpha_cldice=1.0, alpha_dice=0.0, iter_=2, smooth=0.0000001)
             #clDICE- BCE :
             # iter_  = getattr(self.cfg.LOSS, "ITER", 10)
             # smooth = getattr(self.cfg.LOSS, "SMOOTH", 0.0000001)
