@@ -486,7 +486,7 @@ class DiceLoss(nn.Module): #mais à quoi correspond ces target dans biapy ? a qu
         return 1 - dice
 
 
-class SoftclDiceLoss3D(nn.Module):
+class SoftclDiceLoss3D_annealed(nn.Module):
     """
     Soft clDice 3D avec:
       - annealing automatique du nb d'itérations de squelettisation (sans set_epoch),

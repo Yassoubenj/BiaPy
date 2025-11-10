@@ -15,7 +15,7 @@ from biapy.engine.metrics import (
     DiceBCELoss,
     DiceLoss,
     CLDice,
-    SoftclDiceLoss3D,
+    SoftclDiceLoss3D_annealed,
     SoftDiceClDiceLoss3D,
     SoftclDiceBCELoss,
     SoftclDiceDiceBCELoss,
@@ -171,7 +171,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         elif self.cfg.LOSS.TYPE == "W_CE_DICE":
             self.loss = DiceBCELoss(w_dice=self.cfg.LOSS.WEIGHTS[0], w_bce=self.cfg.LOSS.WEIGHTS[1])
         elif self.cfg.LOSS.TYPE == "CLDICE":
-            self.loss = SoftclDiceLoss3D(iter_=20, smooth=1e-7, iter_min=3, anneal_steps=54000)
+            self.loss = SoftclDiceLoss3D_annealed(iter_=20, smooth=1e-7, iter_min=3, anneal_steps=54000)
         #elif self.cfg.LOSS.TYPE == "CLDICE": 
         #    self.loss = SoftclDiceDiceBCELoss(alpha_cldice=1.0, alpha_dice=0.0, iter_=2, smooth=0.0000001)
             #clDICE- BCE :
