@@ -171,7 +171,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         elif self.cfg.LOSS.TYPE == "W_CE_DICE":
             self.loss = DiceBCELoss(w_dice=self.cfg.LOSS.WEIGHTS[0], w_bce=self.cfg.LOSS.WEIGHTS[1])
         elif self.cfg.LOSS.TYPE == "CLDICE":
-            self.loss = SoftclDiceDiceBCELoss(alpha_cldice=0.4, alpha_dice=0.6, iter_=10, smooth=0.0000001)
+            self.loss = SoftclDiceDiceBCELoss(alpha_cldice=0.6, alpha_dice=0.4, iter_=10, smooth=0.0000001)
         #elif self.cfg.LOSS.TYPE == "CLDICE": 
         #    self.loss = SoftclDiceDiceBCELoss(alpha_cldice=1.0, alpha_dice=0.0, iter_=2, smooth=0.0000001)
             #clDICE- BCE :
