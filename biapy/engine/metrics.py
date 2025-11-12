@@ -40,6 +40,14 @@ def _flatten_batch(arr: np.ndarray) -> np.ndarray:
     spatial_ndim = 3 if arr.shape[-3:].prod() > 0 else 2  # safe
     return arr.reshape(-1, *arr.shape[-spatial_ndim:])
 
+def flatten_masks(arr: np.ndarray) -> np.ndarray:
+            # any dims before the last 2 or 3 are batch dims
+            if arr.ndim > 3:
+                spatial = arr.shape[-3:] if arr.ndim > 2 and arr.shape[-3] > 1 else arr.shape[-2:]
+                return arr.reshape(-1, *spatial)
+            else:
+                return arr[np.newaxis, ...]
+
 class CenterlineDice:
     """
     Dice strict entre squelettes binaires:
@@ -54,8 +62,8 @@ class CenterlineDice:
         P = _to_numpy_bool(y_pred, self.threshold)
         G = _to_numpy_bool(y_true, self.threshold)
 
-        P_list = _flatten_batch(P)
-        G_list = _flatten_batch(G)
+        P_list = flatten_masks(P)
+        G_list = flatten_masks(G)
 
         scores = []
         for p, g in zip(P_list, G_list):
@@ -108,8 +116,8 @@ class SkeletonAlignmentScore:
     def __call__(self, y_pred, y_true):
         P = _to_numpy_bool(y_pred, self.threshold)
         G = _to_numpy_bool(y_true, self.threshold)
-        P_list = _flatten_batch(P)
-        G_list = _flatten_batch(G)
+        P_list = flatten_masks(P)
+        G_list = flatten_masks(G)
 
         sampling = self.spacing if self.spacing is not None else 1.0
 
@@ -168,88 +176,6 @@ class SkeletonAlignmentScore:
         if isinstance(y_pred, torch.Tensor):
             return torch.tensor(mean_score, device=y_pred.device, dtype=y_pred.dtype)
         return mean_score
-
-
-# class SkeletonF1Delta:
-#     """
-#     F1@δ entre squelettes avec tolérance géométrique.
-#     - delta: tolérance (en voxels si spacing=None, sinon en unités physiques)
-#     - spacing: tuple (sz, sy, sx) ou (sy, sx) selon la dimension
-#     Renvoie un scalaire: F1@δ moyen sur le batch.
-#     Sauvegarde aussi des détails par échantillon dans self.last_details.
-#     """
-#     def __init__(self, delta: float = 1.0, threshold: float = 0.5, spacing=None):
-#         self.delta = float(delta)
-#         self.threshold = float(threshold)
-#         self.spacing = spacing
-#         self.last_details = None  # rempli à l'appel
-
-#     def __call__(self, y_pred, y_true):
-#         P = _to_numpy_bool(y_pred, self.threshold)
-#         G = _to_numpy_bool(y_true, self.threshold)
-
-#         P_list = _flatten_batch(P)
-#         G_list = _flatten_batch(G)
-
-#         sampling = self.spacing if self.spacing is not None else 1.0
-
-#         f1s, precs, recs, npos_pred, npos_gt = [], [], [], [], []
-#         for p, g in zip(P_list, G_list):
-#             Ps = skeletonize(p)
-#             Gs = skeletonize(g)
-
-#             # distances vers l'autre squelette
-#             # edt: distance au 0 -> on l'applique au complément (~squelette)
-#             if Ps.any():
-#                 D_gt_to_pred = edt(~Ps, sampling=sampling)  # dist jusqu'à Skel(P)
-#             if Gs.any():
-#                 D_pred_to_gt = edt(~Gs, sampling=sampling)  # dist jusqu'à Skel(G)
-
-#             # Precision@δ: % de voxels de Skel(P) couverts par Skel(G)
-#             if Gs.any() and Ps.any():
-#                 prec = (D_pred_to_gt[Ps] <= self.delta).mean()
-#             elif not Ps.any() and not Gs.any():
-#                 prec = 1.0  # rien des deux côtés -> parfait
-#             elif Ps.any() and not Gs.any():
-#                 prec = 0.0
-#             else:  # not Ps.any() and Gs.any()
-#                 prec = 1.0  # pas de FP
-
-#             # Recall@δ: % de voxels de Skel(G) couverts par Skel(P)
-#             if Ps.any() and Gs.any():
-#                 rec = (D_gt_to_pred[Gs] <= self.delta).mean()
-#             elif not Ps.any() and not Gs.any():
-#                 rec = 1.0
-#             elif Gs.any() and not Ps.any():
-#                 rec = 0.0
-#             else:  # not Gs.any() and Ps.any()
-#                 rec = 1.0  # pas de FN
-
-#             f1 = 0.0 if (prec + rec) == 0 else 2 * prec * rec / (prec + rec)
-
-#             f1s.append(float(f1))
-#             precs.append(float(prec))
-#             recs.append(float(rec))
-#             npos_pred.append(int(Ps.sum()))
-#             npos_gt.append(int(Gs.sum()))
-
-#         # garder des détails si besoin
-#         self.last_details = {
-#             "f1_per_sample": f1s,
-#             "precision_per_sample": precs,
-#             "recall_per_sample": recs,
-#             "npos_pred": npos_pred,
-#             "npos_gt": npos_gt,
-#             "delta": self.delta,
-#             "spacing": self.spacing,
-#         }
-
-#         mean_f1 = float(np.mean(f1s)) if f1s else 0.0
-#         if isinstance(y_pred, torch.Tensor):
-#             return torch.tensor(mean_f1, device=y_pred.device, dtype=y_pred.dtype)
-#         return mean_f1
-
-
 
 
 def cl_score(v, s):
