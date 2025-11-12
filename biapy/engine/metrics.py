@@ -13,6 +13,243 @@ import torch.nn as nn
 from torch.nn.modules.loss import _Loss
 from typing import Dict, Optional, List
 from skimage.morphology import skeletonize #à voir si on doit limporter du coup !
+from scipy.ndimage import distance_transform_edt as edt
+
+
+def _to_numpy_bool(x, threshold=0.5):
+    """Accepts torch or numpy. Returns boolean numpy array with same spatial dims."""
+    if isinstance(x, torch.Tensor):
+        x = x.detach().cpu().numpy()
+    x = np.asarray(x)
+    if x.dtype == np.bool_:
+        return x
+    # assume x in [0,1] or logits already thresholded before
+    return (x >= float(threshold))
+
+
+def _flatten_batch(arr: np.ndarray) -> np.ndarray:
+    """
+    Flatte toutes les dimensions de batch/channel, garde 2D (H,W) ou 3D (D,H,W).
+    Règles:
+      - si arr.ndim in {2,3} -> on rajoute une dimension batch = 1
+      - si arr.ndim >= 4 -> on prend les 2/3 dernières dims comme spatial, on aplati le reste
+    """
+    if arr.ndim == 2 or arr.ndim == 3:
+        return arr[np.newaxis, ...]
+    # >= 4
+    spatial_ndim = 3 if arr.shape[-3:].prod() > 0 else 2  # safe
+    return arr.reshape(-1, *arr.shape[-spatial_ndim:])
+
+class CenterlineDice:
+    """
+    Dice strict entre squelettes binaires:
+        Dice( Skel(P), Skel(G) )
+    Sensible aux petits décalages (0 tolérance).
+    """
+    def __init__(self, threshold: float = 0.5):
+        self.threshold = float(threshold)
+
+    def __call__(self, y_pred, y_true):
+        # binarise puis squelettise
+        P = _to_numpy_bool(y_pred, self.threshold)
+        G = _to_numpy_bool(y_true, self.threshold)
+
+        P_list = _flatten_batch(P)
+        G_list = _flatten_batch(G)
+
+        scores = []
+        for p, g in zip(P_list, G_list):
+            Ps = skeletonize(p)
+            Gs = skeletonize(g)
+
+            inter = np.logical_and(Ps, Gs).sum(dtype=np.float64) #intersection des squelettes : nombre de voxels où les deux squelettes valent 1.
+            denom = Ps.sum(dtype=np.float64) + Gs.sum(dtype=np.float64) #somme des deux squelettes 
+            if denom == 0:
+                score = 1.0  #convention: pas de squelette des deux côtés -> parfait
+            else:
+                score = 2.0 * inter / denom #formules du DICE 
+            scores.append(score)
+
+        mean_score = float(np.mean(scores)) if scores else 0.0 #on moyenne sur le batch 
+        # si entrée torch -> renvoyer torch scalar (BiaPy-friendly)
+        if isinstance(y_pred, torch.Tensor):
+            return torch.tensor(mean_score, device=y_pred.device, dtype=y_pred.dtype)
+        return mean_score
+
+
+class SkeletonAlignmentScore:
+    """
+    On combine une distance moyenne symétrique entre squelettes (type Chamfer), qui capte “à quel point ils sont loin” même s'ils sont parallèles sans overlap ; 
+    un terme de couverture (F1@δ) qui tombe si les deux squelettes ne se couvrent pas (cas perpendiculaire).
+    Score unique [0,1] pour l'alignement géométrique des squelettes.
+    - Convertit la distance Chamfer symétrique en score: score_dist = exp(-d/tau) : la distance de Chamfer symétrique est la moyenne bidirectionnelle des distances minimales entre deux squelettes.
+    - Combine avec la couverture tolérante F1@delta: score = (1-beta)*score_dist + beta*F1@delta
+
+    Args:
+        threshold: seuillage des probas si y_pred / y_true sont flottants.
+        delta: tolérance (voxel ou unités physiques si spacing).
+        tau: échelle de décroissance pour la distance moyenne (mêmes unités que delta/spacing).
+        beta: poids du terme de couverture (0..1). 0.5 conseillé.
+        spacing: (sz, sy, sx) en 3D ou (sy, sx) en 2D pour distances physiques (passé à EDT).
+    """
+    def __init__(self,
+                 threshold: float = 0.5,
+                 delta: float = 1.0,
+                 tau: float = 2.0,
+                 beta: float = 0.5,
+                 spacing=None):
+        self.threshold = float(threshold)
+        self.delta = float(delta)
+        self.tau = float(tau)
+        self.beta = float(beta)
+        self.spacing = spacing
+        self.last_details = None
+
+    def __call__(self, y_pred, y_true):
+        P = _to_numpy_bool(y_pred, self.threshold)
+        G = _to_numpy_bool(y_true, self.threshold)
+        P_list = _flatten_batch(P)
+        G_list = _flatten_batch(G)
+
+        sampling = self.spacing if self.spacing is not None else 1.0
+
+        scores, details = [], []
+        for p, g in zip(P_list, G_list):
+            Ps = skeletonize(p)
+            Gs = skeletonize(g)
+
+            # Aucun squelette des deux côtés -> score parfait
+            if not Ps.any() and not Gs.any():
+                scores.append(1.0)
+                details.append({"d_chamfer": 0.0, "precision": 1.0, "recall": 1.0, "f1": 1.0})
+                continue
+
+            # Champs de distance (0 sur le squelette)
+            if Ps.any():
+                D_to_P = edt(~Ps, sampling=sampling)  # distance jusqu'à Skel(P)
+            if Gs.any():
+                D_to_G = edt(~Gs, sampling=sampling)  # distance jusqu'à Skel(G)
+
+            # Chamfer symétrique (moyennes dirigées)
+            d_g_to_p = float(D_to_P[Gs].mean()) if Ps.any() and Gs.any() else (
+                       float(D_to_P[Gs].mean()) if Gs.any() else 0.0)
+            d_p_to_g = float(D_to_G[Ps].mean()) if Ps.any() and Gs.any() else (
+                       float(D_to_G[Ps].mean()) if Ps.any() else 0.0)
+            d_chamfer = 0.5 * (d_g_to_p + d_p_to_g)
+
+            # Couverture tolérante F1@delta
+            if Ps.any() and Gs.any():
+                prec = (D_to_G[Ps] <= self.delta).mean()
+                rec  = (D_to_P[Gs] <= self.delta).mean()
+            elif not Ps.any() and not Gs.any():
+                prec = rec = 1.0
+            elif Ps.any() and not Gs.any():
+                prec, rec = 0.0, 1.0
+            else:  # Gs.any() and not Ps.any()
+                prec, rec = 1.0, 0.0
+            f1 = 0.0 if (prec + rec) == 0.0 else 2 * prec * rec / (prec + rec)
+
+            # Distance -> score [0,1]
+            score_dist = float(np.exp(-d_chamfer / max(self.tau, 1e-8)))
+            score = (1.0 - self.beta) * score_dist + self.beta * float(f1)
+
+            scores.append(score)
+            details.append({
+                "d_chamfer": d_chamfer,
+                "precision": float(prec),
+                "recall": float(rec),
+                "f1": float(f1),
+                "score_dist": score_dist,
+                "score": float(score),
+            })
+
+        self.last_details = details
+        mean_score = float(np.mean(scores)) if scores else 0.0
+        if isinstance(y_pred, torch.Tensor):
+            return torch.tensor(mean_score, device=y_pred.device, dtype=y_pred.dtype)
+        return mean_score
+
+
+# class SkeletonF1Delta:
+#     """
+#     F1@δ entre squelettes avec tolérance géométrique.
+#     - delta: tolérance (en voxels si spacing=None, sinon en unités physiques)
+#     - spacing: tuple (sz, sy, sx) ou (sy, sx) selon la dimension
+#     Renvoie un scalaire: F1@δ moyen sur le batch.
+#     Sauvegarde aussi des détails par échantillon dans self.last_details.
+#     """
+#     def __init__(self, delta: float = 1.0, threshold: float = 0.5, spacing=None):
+#         self.delta = float(delta)
+#         self.threshold = float(threshold)
+#         self.spacing = spacing
+#         self.last_details = None  # rempli à l'appel
+
+#     def __call__(self, y_pred, y_true):
+#         P = _to_numpy_bool(y_pred, self.threshold)
+#         G = _to_numpy_bool(y_true, self.threshold)
+
+#         P_list = _flatten_batch(P)
+#         G_list = _flatten_batch(G)
+
+#         sampling = self.spacing if self.spacing is not None else 1.0
+
+#         f1s, precs, recs, npos_pred, npos_gt = [], [], [], [], []
+#         for p, g in zip(P_list, G_list):
+#             Ps = skeletonize(p)
+#             Gs = skeletonize(g)
+
+#             # distances vers l'autre squelette
+#             # edt: distance au 0 -> on l'applique au complément (~squelette)
+#             if Ps.any():
+#                 D_gt_to_pred = edt(~Ps, sampling=sampling)  # dist jusqu'à Skel(P)
+#             if Gs.any():
+#                 D_pred_to_gt = edt(~Gs, sampling=sampling)  # dist jusqu'à Skel(G)
+
+#             # Precision@δ: % de voxels de Skel(P) couverts par Skel(G)
+#             if Gs.any() and Ps.any():
+#                 prec = (D_pred_to_gt[Ps] <= self.delta).mean()
+#             elif not Ps.any() and not Gs.any():
+#                 prec = 1.0  # rien des deux côtés -> parfait
+#             elif Ps.any() and not Gs.any():
+#                 prec = 0.0
+#             else:  # not Ps.any() and Gs.any()
+#                 prec = 1.0  # pas de FP
+
+#             # Recall@δ: % de voxels de Skel(G) couverts par Skel(P)
+#             if Ps.any() and Gs.any():
+#                 rec = (D_gt_to_pred[Gs] <= self.delta).mean()
+#             elif not Ps.any() and not Gs.any():
+#                 rec = 1.0
+#             elif Gs.any() and not Ps.any():
+#                 rec = 0.0
+#             else:  # not Gs.any() and Ps.any()
+#                 rec = 1.0  # pas de FN
+
+#             f1 = 0.0 if (prec + rec) == 0 else 2 * prec * rec / (prec + rec)
+
+#             f1s.append(float(f1))
+#             precs.append(float(prec))
+#             recs.append(float(rec))
+#             npos_pred.append(int(Ps.sum()))
+#             npos_gt.append(int(Gs.sum()))
+
+#         # garder des détails si besoin
+#         self.last_details = {
+#             "f1_per_sample": f1s,
+#             "precision_per_sample": precs,
+#             "recall_per_sample": recs,
+#             "npos_pred": npos_pred,
+#             "npos_gt": npos_gt,
+#             "delta": self.delta,
+#             "spacing": self.spacing,
+#         }
+
+#         mean_f1 = float(np.mean(f1s)) if f1s else 0.0
+#         if isinstance(y_pred, torch.Tensor):
+#             return torch.tensor(mean_f1, device=y_pred.device, dtype=y_pred.dtype)
+#         return mean_f1
+
+
 
 
 def cl_score(v, s):

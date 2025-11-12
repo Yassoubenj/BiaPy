@@ -15,6 +15,9 @@ from biapy.engine.metrics import (
     DiceBCELoss,
     DiceLoss,
     CLDice,
+    SkeletonF1Delta,
+    SkeletonAlignmentScore,
+    CenterlineDice,
     SoftclDiceLoss3D_annealed,
     SoftDiceClDiceLoss3D,
     SoftclDiceBCELoss,
@@ -135,6 +138,30 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                 )
                 self.train_metric_names.append("clDice")
                 self.train_metric_best.append("max") 
+            elif  metric.lower() == "Skeleton_Dice":
+                self.train_metrics.append(
+                    CenterlineDice(                         
+                        threshold=getattr(
+                            self.cfg.TRAIN, "CLDICE_THRESHOLD", 0.5
+                        )                                  
+                    ) 
+                )
+                self.train_metric_names.append("SkelDice")
+                self.train_metric_best.append("max") 
+            elif metric.lower() in ("Skeleton_Dist"):
+                self.train_metrics.append(
+                    SkeletonAlignmentScore(
+                        threshold=getattr(self.cfg.TRAIN, "SAS_THRESHOLD", 0.5),
+                        delta=getattr(self.cfg.TRAIN, "SAS_DELTA", 1.0),
+                        tau=getattr(self.cfg.TRAIN, "SAS_TAU", 3.0),
+                        beta=getattr(self.cfg.TRAIN, "SAS_BETA", 0.5),
+                        spacing=getattr(self.cfg.DATA, "VOXEL_SIZE", None)
+                                or getattr(self.cfg.DATA, "SPACING", None)
+                    )
+                )
+                self.train_metric_names.append("SkelDist")
+                self.train_metric_best.append("max")
+
 
 
         self.test_metrics = []
@@ -158,6 +185,27 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                     )
                 )
                 self.test_metric_names.append("clDice")
+            elif  metric.lower() == "Skeleton_Dice":
+                self.test_metrics.append(
+                    CenterlineDice(                         
+                        threshold=getattr(
+                            self.cfg.TRAIN, "CLDICE_THRESHOLD", 0.5
+                        )                                  
+                    ) 
+                )
+                self.test_metric_names.append("SkelDice")
+            elif metric.lower() in ("Skeleton_Dist"):
+                self.test_metrics.append(
+                    SkeletonAlignmentScore(
+                        threshold=getattr(self.cfg.TRAIN, "SAS_THRESHOLD", 0.5),
+                        delta=getattr(self.cfg.TRAIN, "SAS_DELTA", 1.0),
+                        tau=getattr(self.cfg.TRAIN, "SAS_TAU", 3.0),
+                        beta=getattr(self.cfg.TRAIN, "SAS_BETA", 0.5),
+                        spacing=getattr(self.cfg.DATA, "VOXEL_SIZE", None)
+                                or getattr(self.cfg.DATA, "SPACING", None)
+                    )
+                )
+                self.test_metric_names.append("SkelDist")
 
 
         if self.cfg.LOSS.TYPE == "CE":
