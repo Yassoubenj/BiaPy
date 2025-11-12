@@ -15,7 +15,6 @@ from biapy.engine.metrics import (
     DiceBCELoss,
     DiceLoss,
     CLDice,
-    SkeletonF1Delta,
     SkeletonAlignmentScore,
     CenterlineDice,
     SoftclDiceLoss3D_annealed,
