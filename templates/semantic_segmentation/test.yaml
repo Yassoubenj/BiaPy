@@ -61,7 +61,7 @@ TEST:
     ENABLE: True
     AUGMENTATION: False
     FULL_IMG: False
-    METRICS : ["iou", "cldice", "Skeleton_Dice", "Skeleton_Dist"]
+    METRICS : ["iou", "cldice", "skeldist", "skeldice"]
 
 LOSS:
     TYPE: DICE
