@@ -48,7 +48,7 @@ MODEL:
 
 TRAIN:
     ENABLE: True
-    METRICS : ["iou", "cldice", "Skeleton_Dice", "Skeleton_Dist"]
+    METRICS : ["iou", "cldice", "skeldist", "skeldice"]
     OPTIMIZER: ADAMW
     LR: 1.E-3
     BATCH_SIZE: 4

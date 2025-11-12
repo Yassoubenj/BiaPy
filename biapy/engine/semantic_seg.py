@@ -185,7 +185,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                     )
                 )
                 self.test_metric_names.append("clDice")
-            elif  metric.lower() == "Skeleton_Dice":
+            elif  metric.lower() == "skeldice":
                 self.test_metrics.append(
                     CenterlineDice(                         
                         threshold=getattr(
@@ -194,7 +194,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                     ) 
                 )
                 self.test_metric_names.append("SkelDice")
-            elif metric.lower() in ("Skeleton_Dist"):
+            elif metric.lower() == "skeldist":
                 self.test_metrics.append(
                     SkeletonAlignmentScore(
                         threshold=getattr(self.cfg.TRAIN, "SAS_THRESHOLD", 0.5),

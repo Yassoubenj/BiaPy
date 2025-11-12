@@ -8,7 +8,7 @@ from biapy.utils.misc import get_checkpoint_path
 from biapy.data.data_manipulation import check_value
 from biapy.config import Config
 
-_VALID_METRICS = ["iou", "cldice", "Skeleton_Dice", "Skeleton_Dist"]
+_VALID_METRICS = ["iou", "cldice", "skeldist", "skeldice"]
 def check_configuration(cfg, jobname, check_data_paths=True):
     """
     Check if the configuration is good.
