@@ -137,7 +137,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                 )
                 self.train_metric_names.append("clDice")
                 self.train_metric_best.append("max") 
-            if  metric.lower() == "Skeleton_Dice":
+            if  metric.lower() == "skeldice":
                 self.train_metrics.append(
                     CenterlineDice(                         
                         threshold=getattr(
@@ -147,7 +147,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                 )
                 self.train_metric_names.append("SkelDice")
                 self.train_metric_best.append("max") 
-            if metric.lower() in ("Skeleton_Dist"):
+            if metric.lower() in ("skeldist"):
                 self.train_metrics.append(
                     SkeletonAlignmentScore(
                         threshold=getattr(self.cfg.TRAIN, "SAS_THRESHOLD", 0.5),
