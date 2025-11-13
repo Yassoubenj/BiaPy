@@ -185,6 +185,7 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
                 )
                 self.test_metric_names.append("clDice")
             if  metric.lower() == "skeldice":
+                print
                 self.test_metrics.append(
                     CenterlineDice(                         
                         threshold=getattr(

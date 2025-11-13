@@ -15,38 +15,136 @@ from typing import Dict, Optional, List
 from skimage.morphology import skeletonize #à voir si on doit limporter du coup !
 from scipy.ndimage import distance_transform_edt as edt
 
+def _patch_diag_in_units(arr: np.ndarray, sampling) -> float:
+    """Grande distance finie (diagonale du patch) pour les cas 'ensemble vide'."""
+    ndim = arr.ndim
+    shp = np.array(arr.shape[-ndim:], dtype=float)
+    if np.isscalar(sampling):
+        spc = np.full(ndim, float(sampling))
+    else:
+        spc = np.array(sampling, dtype=float)
+        if spc.size != ndim:
+            spc = np.full(ndim, float(1.0))
+    return float(np.linalg.norm(shp * spc))
 
-def _to_numpy_bool(x, threshold=0.5):
-    """Accepts torch or numpy. Returns boolean numpy array with same spatial dims."""
-    if isinstance(x, torch.Tensor):
-        x = x.detach().cpu().numpy()
-    x = np.asarray(x)
-    if x.dtype == np.bool_:
-        return x
-    # assume x in [0,1] or logits already thresholded before
-    return (x >= float(threshold))
-
-
-def _flatten_batch(arr: np.ndarray) -> np.ndarray:
+class SkeletonAlignmentScore:
     """
-    Flatte toutes les dimensions de batch/channel, garde 2D (H,W) ou 3D (D,H,W).
-    Règles:
-      - si arr.ndim in {2,3} -> on rajoute une dimension batch = 1
-      - si arr.ndim >= 4 -> on prend les 2/3 dernières dims comme spatial, on aplati le reste
+    Score unique [0,1] pour l'alignement géométrique des squelettes.
+    score = (1-beta)*exp(-d_chamfer/tau) + beta*F1@delta
     """
-    if arr.ndim == 2 or arr.ndim == 3:
-        return arr[np.newaxis, ...]
-    # >= 4
-    spatial_ndim = 3 if arr.shape[-3:].prod() > 0 else 2  # safe
-    return arr.reshape(-1, *arr.shape[-spatial_ndim:])
+    def __init__(self,
+                 threshold: float = 0.5,
+                 delta: float = 1.0,
+                 tau: float = 2.0,
+                 beta: float = 0.5,
+                 spacing=None):
+        self.threshold = float(threshold)
+        self.delta = float(delta)
+        self.tau = float(tau)
+        self.beta = float(beta)
+        self.spacing = spacing
+        self.last_details = None
 
-def flatten_masks(arr: np.ndarray) -> np.ndarray:
+    def __call__(self, y_pred, y_true):
+
+         # 1) Convert logits to binary mask
+        if isinstance(y_pred, torch.Tensor):
+            prob = torch.sigmoid(y_pred)
+            # detach() to remove gradient, cpu() to move to CPU for numpy()
+            pred_np = (prob > self.threshold).detach().cpu().numpy().astype(bool)
+        else:
+            pred_np = (np.array(y_pred) > self.threshold).astype(bool)
+
+        # 2) Prepare ground truth as boolean numpy
+        if isinstance(y_true, torch.Tensor):
+            true_np = y_true.detach().cpu().numpy().astype(bool)
+        else:
+            true_np = np.array(y_true).astype(bool)
+
+        # 3) Flatten leading dims to get list of volumes/slices :  A VERIFIER
+        def flatten_masks(arr: np.ndarray) -> np.ndarray:
             # any dims before the last 2 or 3 are batch dims
             if arr.ndim > 3:
                 spatial = arr.shape[-3:] if arr.ndim > 2 and arr.shape[-3] > 1 else arr.shape[-2:]
                 return arr.reshape(-1, *spatial)
             else:
                 return arr[np.newaxis, ...]
+
+        P_list = flatten_masks(pred_np)
+        G_list = flatten_masks(true_np)
+        
+        sampling = self.spacing if self.spacing is not None else 1.0
+
+        scores, details = [], []
+        for p, g in zip(P_list, G_list):
+            Ps = skeletonize(p)
+            Gs = skeletonize(g)
+
+            # Aucun squelette des deux côtés -> score parfait
+            if not Ps.any() and not Gs.any():
+                scores.append(1.0)
+                details.append({"d_chamfer": 0.0, "precision": 1.0, "recall": 1.0, "f1": 1.0, "score_dist": 1.0, "score": 1.0})
+                continue
+
+            # Champs de distance (0 sur le squelette) — init toujours
+            D_to_P = edt(~Ps, sampling=sampling) if Ps.any() else None
+            D_to_G = edt(~Gs, sampling=sampling) if Gs.any() else None
+
+            bigP = _patch_diag_in_units(Gs if Gs.any() else Ps, sampling)
+            bigG = _patch_diag_in_units(Ps if Ps.any() else Gs, sampling)
+
+            # Distances dirigées (moyenne des mins)
+            # d(G -> P)
+            if Gs.any() and Ps.any():
+                d_g_to_p = float(D_to_P[Gs].mean())
+            elif Gs.any() and not Ps.any():
+                d_g_to_p = bigP  # distance vers ensemble vide -> grande valeur finie
+            else:
+                d_g_to_p = 0.0   # rien à mesurer
+
+            # d(P -> G)
+            if Ps.any() and Gs.any():
+                d_p_to_g = float(D_to_G[Ps].mean())
+            elif Ps.any() and not Gs.any():
+                d_p_to_g = bigG
+            else:
+                d_p_to_g = 0.0
+
+            d_chamfer = 0.5 * (d_g_to_p + d_p_to_g)
+
+            # Couverture tolérante F1@delta
+            if Ps.any() and Gs.any():
+                prec = (D_to_G[Ps] <= self.delta).mean()
+                rec  = (D_to_P[Gs] <= self.delta).mean()
+            elif not Ps.any() and not Gs.any():
+                prec = rec = 1.0
+            elif Ps.any() and not Gs.any():
+                prec, rec = 0.0, 1.0
+            else:  # Gs.any() and not Ps.any()
+                prec, rec = 1.0, 0.0
+
+            f1 = 0.0 if (prec + rec) == 0.0 else 2 * prec * rec / (prec + rec)
+
+            # Distance -> score [0,1]
+            score_dist = float(np.exp(-d_chamfer / max(self.tau, 1e-8)))
+            score = (1.0 - self.beta) * score_dist + self.beta * float(f1)
+
+            scores.append(score)
+            details.append({
+                "d_chamfer": float(d_chamfer),
+                "precision": float(prec),
+                "recall": float(rec),
+                "f1": float(f1),
+                "score_dist": float(score_dist),
+                "score": float(score),
+            })
+
+        self.last_details = details
+        mean_score = float(np.mean(scores)) if scores else 0.0
+        if isinstance(y_pred, torch.Tensor):
+            return torch.tensor(mean_score, device=y_pred.device, dtype=y_pred.dtype)
+        return mean_score
+
 
 class CenterlineDice:
     """
@@ -56,14 +154,36 @@ class CenterlineDice:
     """
     def __init__(self, threshold: float = 0.5):
         self.threshold = float(threshold)
-
+    
     def __call__(self, y_pred, y_true):
-        # binarise puis squelettise
-        P = _to_numpy_bool(y_pred, self.threshold)
-        G = _to_numpy_bool(y_true, self.threshold)
 
-        P_list = flatten_masks(P)
-        G_list = flatten_masks(G)
+         # 1) Convert logits to binary mask
+        if isinstance(y_pred, torch.Tensor):
+            prob = torch.sigmoid(y_pred)
+            # detach() to remove gradient, cpu() to move to CPU for numpy()
+            pred_np = (prob > self.threshold).detach().cpu().numpy().astype(bool)
+        else:
+            pred_np = (np.array(y_pred) > self.threshold).astype(bool)
+
+        # 2) Prepare ground truth as boolean numpy
+        if isinstance(y_true, torch.Tensor):
+            true_np = y_true.detach().cpu().numpy().astype(bool)
+        else:
+            true_np = np.array(y_true).astype(bool)
+
+        # 3) Flatten leading dims to get list of volumes/slices :  A VERIFIER
+        def flatten_masks(arr: np.ndarray) -> np.ndarray:
+            # any dims before the last 2 or 3 are batch dims
+            if arr.ndim > 3:
+                spatial = arr.shape[-3:] if arr.ndim > 2 and arr.shape[-3] > 1 else arr.shape[-2:]
+                return arr.reshape(-1, *spatial)
+            else:
+                return arr[np.newaxis, ...]
+
+        P_list = flatten_masks(pred_np)
+        G_list = flatten_masks(true_np)
+        
+        sampling = self.spacing if self.spacing is not None else 1.0
 
         scores = []
         for p, g in zip(P_list, G_list):
@@ -80,99 +200,6 @@ class CenterlineDice:
 
         mean_score = float(np.mean(scores)) if scores else 0.0 #on moyenne sur le batch 
         # si entrée torch -> renvoyer torch scalar (BiaPy-friendly)
-        if isinstance(y_pred, torch.Tensor):
-            return torch.tensor(mean_score, device=y_pred.device, dtype=y_pred.dtype)
-        return mean_score
-
-
-class SkeletonAlignmentScore:
-    """
-    On combine une distance moyenne symétrique entre squelettes (type Chamfer), qui capte “à quel point ils sont loin” même s'ils sont parallèles sans overlap ; 
-    un terme de couverture (F1@δ) qui tombe si les deux squelettes ne se couvrent pas (cas perpendiculaire).
-    Score unique [0,1] pour l'alignement géométrique des squelettes.
-    - Convertit la distance Chamfer symétrique en score: score_dist = exp(-d/tau) : la distance de Chamfer symétrique est la moyenne bidirectionnelle des distances minimales entre deux squelettes.
-    - Combine avec la couverture tolérante F1@delta: score = (1-beta)*score_dist + beta*F1@delta
-
-    Args:
-        threshold: seuillage des probas si y_pred / y_true sont flottants.
-        delta: tolérance (voxel ou unités physiques si spacing).
-        tau: échelle de décroissance pour la distance moyenne (mêmes unités que delta/spacing).
-        beta: poids du terme de couverture (0..1). 0.5 conseillé.
-        spacing: (sz, sy, sx) en 3D ou (sy, sx) en 2D pour distances physiques (passé à EDT).
-    """
-    def __init__(self,
-                 threshold: float = 0.5,
-                 delta: float = 1.0,
-                 tau: float = 2.0,
-                 beta: float = 0.5,
-                 spacing=None):
-        self.threshold = float(threshold)
-        self.delta = float(delta)
-        self.tau = float(tau)
-        self.beta = float(beta)
-        self.spacing = spacing
-        self.last_details = None
-
-    def __call__(self, y_pred, y_true):
-        P = _to_numpy_bool(y_pred, self.threshold)
-        G = _to_numpy_bool(y_true, self.threshold)
-        P_list = flatten_masks(P)
-        G_list = flatten_masks(G)
-
-        sampling = self.spacing if self.spacing is not None else 1.0
-
-        scores, details = [], []
-        for p, g in zip(P_list, G_list):
-            Ps = skeletonize(p)
-            Gs = skeletonize(g)
-
-            # Aucun squelette des deux côtés -> score parfait
-            if not Ps.any() and not Gs.any():
-                scores.append(1.0)
-                details.append({"d_chamfer": 0.0, "precision": 1.0, "recall": 1.0, "f1": 1.0})
-                continue
-
-            # Champs de distance (0 sur le squelette)
-            if Ps.any():
-                D_to_P = edt(~Ps, sampling=sampling)  # distance jusqu'à Skel(P)
-            if Gs.any():
-                D_to_G = edt(~Gs, sampling=sampling)  # distance jusqu'à Skel(G)
-
-            # Chamfer symétrique (moyennes dirigées)
-            d_g_to_p = float(D_to_P[Gs].mean()) if Ps.any() and Gs.any() else (
-                       float(D_to_P[Gs].mean()) if Gs.any() else 0.0)
-            d_p_to_g = float(D_to_G[Ps].mean()) if Ps.any() and Gs.any() else (
-                       float(D_to_G[Ps].mean()) if Ps.any() else 0.0)
-            d_chamfer = 0.5 * (d_g_to_p + d_p_to_g)
-
-            # Couverture tolérante F1@delta
-            if Ps.any() and Gs.any():
-                prec = (D_to_G[Ps] <= self.delta).mean()
-                rec  = (D_to_P[Gs] <= self.delta).mean()
-            elif not Ps.any() and not Gs.any():
-                prec = rec = 1.0
-            elif Ps.any() and not Gs.any():
-                prec, rec = 0.0, 1.0
-            else:  # Gs.any() and not Ps.any()
-                prec, rec = 1.0, 0.0
-            f1 = 0.0 if (prec + rec) == 0.0 else 2 * prec * rec / (prec + rec)
-
-            # Distance -> score [0,1]
-            score_dist = float(np.exp(-d_chamfer / max(self.tau, 1e-8)))
-            score = (1.0 - self.beta) * score_dist + self.beta * float(f1)
-
-            scores.append(score)
-            details.append({
-                "d_chamfer": d_chamfer,
-                "precision": float(prec),
-                "recall": float(rec),
-                "f1": float(f1),
-                "score_dist": score_dist,
-                "score": float(score),
-            })
-
-        self.last_details = details
-        mean_score = float(np.mean(scores)) if scores else 0.0
         if isinstance(y_pred, torch.Tensor):
             return torch.tensor(mean_score, device=y_pred.device, dtype=y_pred.dtype)
         return mean_score
