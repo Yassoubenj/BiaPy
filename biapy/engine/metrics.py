@@ -182,8 +182,6 @@ class CenterlineDice:
 
         P_list = flatten_masks(pred_np)
         G_list = flatten_masks(true_np)
-        
-        sampling = self.spacing if self.spacing is not None else 1.0
 
         scores = []
         for p, g in zip(P_list, G_list):
