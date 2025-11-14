@@ -673,53 +673,78 @@ class DiceLoss(nn.Module): #mais à quoi correspond ces target dans biapy ? a qu
         #print(dice, dice.shape)
         return 1 - dice
 
-
 class SoftclDiceLoss3D_annealed(nn.Module):
     """
-    Soft clDice 3D avec:
-      - annealing automatique du nb d'itérations de squelettisation (sans set_epoch),
-      - moyenne par image.
+    clDice 3D avec curriculum sur patchs vides (GT sans squelette).
 
-    Args:
-        iter_ (int): nombre d'itérations cible (iter_max).
-        smooth (float): epsilon de stabilité numérique.
-        iter_min (int): nb d'itérations au tout début (par défaut 2).
-        anneal_steps (int): nb de forwards (batches) pour aller de iter_min -> iter_.
-                            Si 0, pas d'annealing (on utilise directement iter_).
+    - ignore_epochs : nb d'époques où les patchs vides ont poids 0
+    - ramp_epochs   : nb d'époques de rampe linéaire (poids 0 -> 1)
+    - steps_per_epoch : si fourni, l'époque courante est estimée via un compteur interne.
+                        Sinon, appelez .set_epoch(epoch) à chaque début d'époque.
+
+    Le loss est calculé par échantillon, puis moyenné pondéré:
+        L = sum_i w_i * cldice_i / (sum_i w_i + 1e-8)
+    où w_i dépend du statut "vide" et de l'époque (curriculum).
     """
-    def __init__(self, iter_: int, smooth: float, iter_min: int, anneal_steps: int):
+    def __init__(self, iter_: int, smooth: float,
+                 ignore_epochs: int = 6,
+                 ramp_epochs: int = 6,
+                 steps_per_epoch: int | None = None):
         super().__init__()
-        self.iter_max = int(iter_)
-        self.iter_min = int(iter_min)
+        self.iter = int(iter_)
         self.smooth = float(smooth)
-        self.anneal_steps = int(anneal_steps)
+        self.ignore_epochs = int(ignore_epochs)
+        self.ramp_epochs = int(ramp_epochs)
+        self.steps_per_epoch = int(steps_per_epoch) if steps_per_epoch else None
 
-        # Compteur interne d'appels à forward (persiste sur device)
-        self.register_buffer("_step_counter", torch.zeros(1, dtype=torch.long), persistent=False)
+        # suivi de progression si on n'utilise pas set_epoch
+        self._epoch = 0
+        self._step_count = 0
 
-    def _current_iter(self) -> int:
-        if self.anneal_steps <= 0:
-            return self.iter_max
-        # step courant (converti en float pour l'interpolation)
-        step = self._step_counter.item()
-        a = 1.0 if step >= self.anneal_steps else float(step) / float(self.anneal_steps)  # 0→1
-        it = self.iter_min + a * (self.iter_max - self.iter_min)
-        return int(round(it))
+        # stats debug (facultatif)
+        self.last_stats = None
+
+    # Optionnel : si votre loop sait l'époque courante, appelez ceci au début de chaque epoch
+    def set_epoch(self, epoch: int):
+        self._epoch = int(epoch)
+
+    def _current_epoch(self):
+        if self.steps_per_epoch:
+            # approx via compteur interne
+            return self._step_count // max(self.steps_per_epoch, 1)
+        return self._epoch
+
+    def _empty_weight(self, epoch: int):
+        """Poids appliqué aux patchs Vides (GT sans squelette) selon l'époque."""
+        if epoch < self.ignore_epochs:
+            return 0.0
+        if epoch < self.ignore_epochs + self.ramp_epochs:
+            # rampe linéaire 0 -> 1
+            t = (epoch - self.ignore_epochs) / max(self.ramp_epochs, 1)
+            return float(t)
+        return 1.0
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        # incrémente le compteur d'appels (1 par batch vu)
-        self._step_counter += 1
+        """
+        inputs: logits (N,1,D,H,W)  ; targets: binaire ou [0,1] (N,1,D,H,W)
+        """
+        self._step_count += 1
+        epoch = self._current_epoch()
+        w_empty = self._empty_weight(epoch)
 
-        inputs = torch.sigmoid(inputs)
+        # ---- prétraitements
+        probs = torch.sigmoid(inputs)
+        targets = targets.clamp(0, 1)
 
+        # ops morpho "soft"
         def soft_erode_3d(img: torch.Tensor) -> torch.Tensor:
-            p1 = -F.max_pool3d(-img, kernel_size=(3,1,1), stride=(1,1,1), padding=(1,0,0))
-            p2 = -F.max_pool3d(-img, kernel_size=(1,3,1), stride=(1,1,1), padding=(0,1,0))
-            p3 = -F.max_pool3d(-img, kernel_size=(1,1,3), stride=(1,1,1), padding=(0,0,1))
+            p1 = -F.max_pool3d(-img, kernel_size=(3,1,1), stride=1, padding=(1,0,0))
+            p2 = -F.max_pool3d(-img, kernel_size=(1,3,1), stride=1, padding=(0,1,0))
+            p3 = -F.max_pool3d(-img, kernel_size=(1,1,3), stride=1, padding=(0,0,1))
             return torch.min(torch.min(p1, p2), p3)
 
         def soft_dilate_3d(img: torch.Tensor) -> torch.Tensor:
-            return F.max_pool3d(img, kernel_size=(3,3,3), stride=(1,1,1), padding=(1,1,1))
+            return F.max_pool3d(img, kernel_size=3, stride=1, padding=1)
 
         def soft_open_3d(img: torch.Tensor) -> torch.Tensor:
             return soft_dilate_3d(soft_erode_3d(img))
@@ -734,29 +759,144 @@ class SoftclDiceLoss3D_annealed(nn.Module):
                 skel = skel + F.relu(delta - skel * delta)
             return skel
 
-        iters = self._current_iter()
-        skel_pred = soft_skel_3d(inputs, iters)
-        skel_true = soft_skel_3d(targets, iters)
+        skel_pred = soft_skel_3d(probs, self.iter)
+        skel_true = soft_skel_3d(targets, self.iter)
 
-        # ---- moyenne par image ----
         N = inputs.shape[0]
         losses = []
+        weights = []
+        stats = {"epoch": int(epoch), "w_empty": float(w_empty),
+                 "num_empty": 0, "num_non_empty": 0}
+
+        eps = self.smooth
+
         for i in range(N):
             sp = skel_pred[i].reshape(-1)
             st = skel_true[i].reshape(-1)
-            P  = inputs[i].reshape(-1)
-            G  = targets[i].reshape(-1)
+            p  = probs[i].reshape(-1)
+            t  = targets[i].reshape(-1)
 
-            tprec_den = sp.sum().clamp_min(self.smooth)
-            tprec = (sp * G).sum() / tprec_den
+            # patch "vide" côté GT = pas de squelette dans le GT
+            is_empty = (st.sum() <= 0)
+            stats["num_empty"] += int(is_empty)
+            stats["num_non_empty"] += int(not is_empty)
 
-            tsens_den = st.sum().clamp_min(self.smooth)
-            tsens = (st * P).sum() / tsens_den
+            # Ratios "neutres" (0.5 si tout est vide) -> plus stable :
+            # tprec = (|Sk(P)∧T| + eps) / (|Sk(P)| + 2eps)
+            # tsens = (|Sk(T)∧P| + eps) / (|Sk(T)| + 2eps)
+            tprec_num = (sp * t).sum()
+            tprec_den = sp.sum()
+            tprec = (tprec_num + eps) / (tprec_den + 2*eps)
 
-            cldice_i = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens + self.smooth)
-            losses.append(cldice_i)
+            tsens_num = (st * p).sum()
+            tsens_den = st.sum()
+            tsens = (tsens_num + eps) / (tsens_den + 2*eps)
 
-        return torch.stack(losses).mean()
+            cld = 1.0 - (2.0 * tprec * tsens + eps) / (tprec + tsens + eps)
+
+            # Poids : 1.0 pour non-vides, w_empty pour vides
+            w = probs.new_tensor(w_empty if is_empty else 1.0)
+            losses.append(cld)
+            weights.append(w)
+
+        losses = torch.stack(losses)                 # (N,)
+        weights = torch.stack(weights).clamp(min=0)  # (N,)
+
+        # moyenne pondérée
+        loss = (losses * weights).sum() / (weights.sum() + 1e-8)
+
+        # garder quelques stats utiles pour debug
+        self.last_stats = {
+            **stats,
+            "mean_loss": float(loss.detach().cpu().item()),
+            "weights_sum": float(weights.sum().detach().cpu().item())
+        }
+        return loss
+
+
+# class SoftclDiceLoss3D_annealed(nn.Module):
+#     """
+#     Soft clDice 3D avec:
+#       - annealing automatique du nb d'itérations de squelettisation (sans set_epoch),
+#       - moyenne par image.
+
+#     Args:
+#         iter_ (int): nombre d'itérations cible (iter_max).
+#         smooth (float): epsilon de stabilité numérique.
+#         iter_min (int): nb d'itérations au tout début (par défaut 2).
+#         anneal_steps (int): nb de forwards (batches) pour aller de iter_min -> iter_.
+#                             Si 0, pas d'annealing (on utilise directement iter_).
+#     """
+#     def __init__(self, iter_: int, smooth: float, iter_min: int, anneal_steps: int):
+#         super().__init__()
+#         self.iter_max = int(iter_)
+#         self.iter_min = int(iter_min)
+#         self.smooth = float(smooth)
+#         self.anneal_steps = int(anneal_steps)
+
+#         # Compteur interne d'appels à forward (persiste sur device)
+#         self.register_buffer("_step_counter", torch.zeros(1, dtype=torch.long), persistent=False)
+
+#     def _current_iter(self) -> int:
+#         if self.anneal_steps <= 0:
+#             return self.iter_max
+#         # step courant (converti en float pour l'interpolation)
+#         step = self._step_counter.item()
+#         a = 1.0 if step >= self.anneal_steps else float(step) / float(self.anneal_steps)  # 0→1
+#         it = self.iter_min + a * (self.iter_max - self.iter_min)
+#         return int(round(it))
+
+#     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+#         # incrémente le compteur d'appels (1 par batch vu)
+#         self._step_counter += 1
+
+#         inputs = torch.sigmoid(inputs)
+
+#         def soft_erode_3d(img: torch.Tensor) -> torch.Tensor:
+#             p1 = -F.max_pool3d(-img, kernel_size=(3,1,1), stride=(1,1,1), padding=(1,0,0))
+#             p2 = -F.max_pool3d(-img, kernel_size=(1,3,1), stride=(1,1,1), padding=(0,1,0))
+#             p3 = -F.max_pool3d(-img, kernel_size=(1,1,3), stride=(1,1,1), padding=(0,0,1))
+#             return torch.min(torch.min(p1, p2), p3)
+
+#         def soft_dilate_3d(img: torch.Tensor) -> torch.Tensor:
+#             return F.max_pool3d(img, kernel_size=(3,3,3), stride=(1,1,1), padding=(1,1,1))
+
+#         def soft_open_3d(img: torch.Tensor) -> torch.Tensor:
+#             return soft_dilate_3d(soft_erode_3d(img))
+
+#         def soft_skel_3d(img: torch.Tensor, iter_: int) -> torch.Tensor:
+#             img1 = soft_open_3d(img)
+#             skel = F.relu(img - img1)
+#             for _ in range(iter_):
+#                 img = soft_erode_3d(img)
+#                 img1 = soft_open_3d(img)
+#                 delta = F.relu(img - img1)
+#                 skel = skel + F.relu(delta - skel * delta)
+#             return skel
+
+#         iters = self._current_iter()
+#         skel_pred = soft_skel_3d(inputs, iters)
+#         skel_true = soft_skel_3d(targets, iters)
+
+#         # ---- moyenne par image ----
+#         N = inputs.shape[0]
+#         losses = []
+#         for i in range(N):
+#             sp = skel_pred[i].reshape(-1)
+#             st = skel_true[i].reshape(-1)
+#             P  = inputs[i].reshape(-1)
+#             G  = targets[i].reshape(-1)
+
+#             tprec_den = sp.sum().clamp_min(self.smooth)
+#             tprec = (sp * G).sum() / tprec_den
+
+#             tsens_den = st.sum().clamp_min(self.smooth)
+#             tsens = (st * P).sum() / tsens_den
+
+#             cldice_i = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens + self.smooth)
+#             losses.append(cldice_i)
+
+#         return torch.stack(losses).mean()
 
 
 
@@ -805,24 +945,24 @@ class SoftclDiceLoss3D(nn.Module):
         skel_true_flat = skel_true.view(-1)
         inputs_flat    = inputs.view(-1)
         targets_flat   = targets.view(-1)
-        
+
 #CODE ALTERNATIVE 
 
-        tprec_num = (skel_pred_flat * targets_flat).sum()
-        tprec_den = skel_pred_flat.sum()
+        # tprec_num = (skel_pred_flat * targets_flat).sum()
+        # tprec_den = skel_pred_flat.sum()
 
-        tsens_num = (skel_true_flat * inputs_flat).sum()
-        tsens_den = skel_true_flat.sum()
+        # tsens_num = (skel_true_flat * inputs_flat).sum()
+        # tsens_den = skel_true_flat.sum()
 
-        eps = self.smooth
+        # eps = self.smooth
 
-        # Ratios "neutres" (0.5 si tout est vide)
-        tprec = (tprec_num + eps) / (tprec_den + 2*eps)
-        tsens = (tsens_num + eps) / (tsens_den + 2*eps)
+        # # Ratios "neutres" (0.5 si tout est vide)
+        # tprec = (tprec_num + eps) / (tprec_den + 2*eps)
+        # tsens = (tsens_num + eps) / (tsens_den + 2*eps)
 
-        # clDice stable (évite divisions folles quand tprec+tsens ~ 0)
-        cldice = 1.0 - (2.0 * tprec * tsens + eps) / (tprec + tsens + eps)
-        return cldice
+        # # clDice stable (évite divisions folles quand tprec+tsens ~ 0)
+        # cldice = 1.0 - (2.0 * tprec * tsens + eps) / (tprec + tsens + eps)
+        # return cldice
 
 #CODE NOUVELLE VERSION
         # ratios de précision/sensibilité topologiques
@@ -839,16 +979,16 @@ class SoftclDiceLoss3D(nn.Module):
         # return cldice
 
 #CODE ORIGINAL
-        # tprec_num = (skel_pred_flat * targets_flat).sum()
-        # tprec_den = skel_pred_flat.sum()
-        # tprec = (tprec_num + self.smooth) / (tprec_den + self.smooth)
+        tprec_num = (skel_pred_flat * targets_flat).sum()
+        tprec_den = skel_pred_flat.sum()
+        tprec = (tprec_num + self.smooth) / (tprec_den + self.smooth)
 
-        # tsens_num = (skel_true_flat * inputs_flat).sum()
-        # tsens_den = skel_true_flat.sum()
-        # tsens = (tsens_num + self.smooth) / (tsens_den + self.smooth)
+        tsens_num = (skel_true_flat * inputs_flat).sum()
+        tsens_den = skel_true_flat.sum()
+        tsens = (tsens_num + self.smooth) / (tsens_den + self.smooth)
 
-        # cldice = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
-        #return cldice
+        cldice = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens)
+        return cldice
 
 
 class SoftDiceClDiceLoss3D(nn.Module):

@@ -1143,7 +1143,7 @@ class Config:
         # Training phase
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         _C.TRAIN = CN()
-        _C.TRAIN.ENABLE = False
+        _C.TRAIN.ENABLE = False #le enable cest bien est ce quon applique ou pas ? 
         # Enable verbosity
         _C.TRAIN.VERBOSE = False
         # Optimizer to use. Possible values: "SGD", "ADAM" or "ADAMW"
