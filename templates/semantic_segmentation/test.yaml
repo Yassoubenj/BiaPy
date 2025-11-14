@@ -64,4 +64,4 @@ TEST:
     METRICS : ["iou", "cldice", "skeldist", "skeldice"]
 
 LOSS:
-    TYPE: DICE
+    TYPE: CLDICE

@@ -805,21 +805,40 @@ class SoftclDiceLoss3D(nn.Module):
         skel_true_flat = skel_true.view(-1)
         inputs_flat    = inputs.view(-1)
         targets_flat   = targets.view(-1)
+        
+#CODE ALTERNATIVE 
 
-        # ratios de précision/sensibilité topologiques
+        tprec_num = (skel_pred_flat * targets_flat).sum()
         tprec_den = skel_pred_flat.sum()
-        tprec = ( (skel_pred_flat * targets_flat).sum()
-                / tprec_den.clamp_min(self.smooth) )
 
+        tsens_num = (skel_true_flat * inputs_flat).sum()
         tsens_den = skel_true_flat.sum()
-        tsens = ( (skel_true_flat * inputs_flat).sum()
-                / tsens_den.clamp_min(self.smooth) )
 
-        # clDice stable numériquement
-        cldice = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens + self.smooth)
+        eps = self.smooth
+
+        # Ratios "neutres" (0.5 si tout est vide)
+        tprec = (tprec_num + eps) / (tprec_den + 2*eps)
+        tsens = (tsens_num + eps) / (tsens_den + 2*eps)
+
+        # clDice stable (évite divisions folles quand tprec+tsens ~ 0)
+        cldice = 1.0 - (2.0 * tprec * tsens + eps) / (tprec + tsens + eps)
         return cldice
 
+#CODE NOUVELLE VERSION
+        # ratios de précision/sensibilité topologiques
+        # tprec_den = skel_pred_flat.sum()
+        # tprec = ( (skel_pred_flat * targets_flat).sum()
+        #         / tprec_den.clamp_min(self.smooth) )
 
+        # tsens_den = skel_true_flat.sum()
+        # tsens = ( (skel_true_flat * inputs_flat).sum()
+        #         / tsens_den.clamp_min(self.smooth) )
+
+        # # clDice stable numériquement
+        # cldice = 1.0 - 2.0 * (tprec * tsens) / (tprec + tsens + self.smooth)
+        # return cldice
+
+#CODE ORIGINAL
         # tprec_num = (skel_pred_flat * targets_flat).sum()
         # tprec_den = skel_pred_flat.sum()
         # tprec = (tprec_num + self.smooth) / (tprec_den + self.smooth)
