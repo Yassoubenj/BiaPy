@@ -675,68 +675,54 @@ class DiceLoss(nn.Module): #mais à quoi correspond ces target dans biapy ? a qu
 
 class SoftclDiceLoss3D_annealed(nn.Module):
     """
-    clDice 3D avec curriculum sur patchs vides (GT sans squelette).
-
-    - ignore_epochs : nb d'époques où les patchs vides ont poids 0
-    - ramp_epochs   : nb d'époques de rampe linéaire (poids 0 -> 1)
-    - steps_per_epoch : si fourni, l'époque courante est estimée via un compteur interne.
-                        Sinon, appelez .set_epoch(epoch) à chaque début d'époque.
-
-    Le loss est calculé par échantillon, puis moyenné pondéré:
-        L = sum_i w_i * cldice_i / (sum_i w_i + 1e-8)
-    où w_i dépend du statut "vide" et de l'époque (curriculum).
+    clDice 3D avec curriculum: les patchs GT vides (ou quasi vides) sont
+    ignorés au début puis réintroduits progressivement.
     """
+
     def __init__(self, iter_: int, smooth: float,
-                 ignore_epochs: int = 6,
-                 ramp_epochs: int = 6,
-                 steps_per_epoch: int | None = None):
+                 ignore_epochs: int = 10,
+                 ramp_epochs: int = 10,
+                 steps_per_epoch: int | None = None,
+                 # seuils pour "vide / quasi vide" (au choix)
+                 empty_min_voxels: int = 75,        # 0 => strictement vide
+                 empty_frac: float | None = None   # 1e-5 du volume
+                 ):
         super().__init__()
         self.iter = int(iter_)
         self.smooth = float(smooth)
         self.ignore_epochs = int(ignore_epochs)
         self.ramp_epochs = int(ramp_epochs)
-        self.steps_per_epoch = int(steps_per_epoch) if steps_per_epoch else None
+        # par défaut, 1800 = nb de batches train/epoch d’après les logs
+        self.steps_per_epoch = int(steps_per_epoch) if steps_per_epoch is not None else 1800
+        self.empty_min_voxels = int(empty_min_voxels)
+        self.empty_frac = float(empty_frac) if empty_frac is not None else None
 
-        # suivi de progression si on n'utilise pas set_epoch
         self._epoch = 0
         self._step_count = 0
-
-        # stats debug (facultatif)
         self.last_stats = None
 
-    # Optionnel : si votre loop sait l'époque courante, appelez ceci au début de chaque epoch
-    def set_epoch(self, epoch: int):
-        self._epoch = int(epoch)
 
     def _current_epoch(self):
         if self.steps_per_epoch:
-            # approx via compteur interne
-            return self._step_count // max(self.steps_per_epoch, 1)
-        return self._epoch
+            return self._step_count // max(self.steps_per_epoch, 1)  #steps_per_epoch = 1800 et global_step 0..1799 ⇒ epoch 0 ; 1800..3599 ⇒ epoch 1, etc.
+        return self._epoch  
 
-    def _empty_weight(self, epoch: int):
-        """Poids appliqué aux patchs Vides (GT sans squelette) selon l'époque."""
+    def _empty_weight(self, epoch: int) -> float:
         if epoch < self.ignore_epochs:
             return 0.0
         if epoch < self.ignore_epochs + self.ramp_epochs:
-            # rampe linéaire 0 -> 1
             t = (epoch - self.ignore_epochs) / max(self.ramp_epochs, 1)
             return float(t)
         return 1.0
 
     def forward(self, inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        """
-        inputs: logits (N,1,D,H,W)  ; targets: binaire ou [0,1] (N,1,D,H,W)
-        """
         self._step_count += 1
         epoch = self._current_epoch()
         w_empty = self._empty_weight(epoch)
 
-        # ---- prétraitements
-        probs = torch.sigmoid(inputs)
+        probs   = torch.sigmoid(inputs)
         targets = targets.clamp(0, 1)
 
-        # ops morpho "soft"
         def soft_erode_3d(img: torch.Tensor) -> torch.Tensor:
             p1 = -F.max_pool3d(-img, kernel_size=(3,1,1), stride=1, padding=(1,0,0))
             p2 = -F.max_pool3d(-img, kernel_size=(1,3,1), stride=1, padding=(0,1,0))
@@ -749,26 +735,32 @@ class SoftclDiceLoss3D_annealed(nn.Module):
         def soft_open_3d(img: torch.Tensor) -> torch.Tensor:
             return soft_dilate_3d(soft_erode_3d(img))
 
-        def soft_skel_3d(img: torch.Tensor, iter_: int) -> torch.Tensor:
+        def soft_skel_3d(img: torch.Tensor, it: int) -> torch.Tensor:
             img1 = soft_open_3d(img)
             skel = F.relu(img - img1)
-            for _ in range(iter_):
+            for _ in range(it):
                 img = soft_erode_3d(img)
                 img1 = soft_open_3d(img)
                 delta = F.relu(img - img1)
                 skel = skel + F.relu(delta - skel * delta)
             return skel
 
-        skel_pred = soft_skel_3d(probs, self.iter)
+        skel_pred = soft_skel_3d(probs,   self.iter)
         skel_true = soft_skel_3d(targets, self.iter)
 
         N = inputs.shape[0]
-        losses = []
-        weights = []
-        stats = {"epoch": int(epoch), "w_empty": float(w_empty),
-                 "num_empty": 0, "num_non_empty": 0}
-
+        losses, weights = [], []
         eps = self.smooth
+
+        # pour stats
+        num_empty = 0
+        num_non_empty = 0
+
+        # seuil “presque vide”
+        vol = float(torch.numel(skel_true[0]))
+        min_vox = self.empty_min_voxels
+        if self.empty_frac is not None:
+            min_vox = max(min_vox, int(self.empty_frac * vol + 0.5))
 
         for i in range(N):
             sp = skel_pred[i].reshape(-1)
@@ -776,40 +768,38 @@ class SoftclDiceLoss3D_annealed(nn.Module):
             p  = probs[i].reshape(-1)
             t  = targets[i].reshape(-1)
 
-            # patch "vide" côté GT = pas de squelette dans le GT
-            is_empty = (st.sum() <= 0)
-            stats["num_empty"] += int(is_empty)
-            stats["num_non_empty"] += int(not is_empty)
+            st_sum = st.sum()
+            is_empty = bool(st_sum <= min_vox)
+            if is_empty: num_empty += 1
+            else:        num_non_empty += 1
 
-            # Ratios "neutres" (0.5 si tout est vide) -> plus stable :
-            # tprec = (|Sk(P)∧T| + eps) / (|Sk(P)| + 2eps)
-            # tsens = (|Sk(T)∧P| + eps) / (|Sk(T)| + 2eps)
             tprec_num = (sp * t).sum()
             tprec_den = sp.sum()
-            tprec = (tprec_num + eps) / (tprec_den + 2*eps)
+            tprec = (tprec_num + eps) / (tprec_den + eps)
 
             tsens_num = (st * p).sum()
-            tsens_den = st.sum()
-            tsens = (tsens_num + eps) / (tsens_den + 2*eps)
+            tsens_den = st_sum
+            tsens = (tsens_num + eps) / (tsens_den + eps)
 
-            cld = 1.0 - (2.0 * tprec * tsens + eps) / (tprec + tsens + eps)
+        
+            cld = 1.0 - (2.0 * tprec * tsens ) / (tprec + tsens )
 
-            # Poids : 1.0 pour non-vides, w_empty pour vides
             w = probs.new_tensor(w_empty if is_empty else 1.0)
             losses.append(cld)
             weights.append(w)
 
-        losses = torch.stack(losses)                 # (N,)
-        weights = torch.stack(weights).clamp(min=0)  # (N,)
+        losses  = torch.stack(losses)                 # (N,)
+        weights = torch.stack(weights).clamp_min(0)   # (N,)
 
-        # moyenne pondérée
         loss = (losses * weights).sum() / (weights.sum() + 1e-8)
 
-        # garder quelques stats utiles pour debug
         self.last_stats = {
-            **stats,
+            "epoch": int(epoch),
+            "w_empty": float(w_empty),
+            "num_empty": int(num_empty),
+            "num_non_empty": int(num_non_empty),
             "mean_loss": float(loss.detach().cpu().item()),
-            "weights_sum": float(weights.sum().detach().cpu().item())
+            "weights_sum": float(weights.sum().detach().cpu().item()),
         }
         return loss
 

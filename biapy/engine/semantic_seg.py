@@ -219,7 +219,8 @@ class Semantic_Segmentation_Workflow(Base_Workflow):
         elif self.cfg.LOSS.TYPE == "W_CE_DICE":
             self.loss = DiceBCELoss(w_dice=self.cfg.LOSS.WEIGHTS[0], w_bce=self.cfg.LOSS.WEIGHTS[1])
         elif self.cfg.LOSS.TYPE == "CLDICE":
-            self.loss = SoftclDiceDiceBCELoss(alpha_cldice=0.4, alpha_dice=0.6, iter_=10, smooth=0.0000001)
+            self.loss = SoftclDiceLoss3D_annealed(iter_=getattr(self.cfg.LOSS, "CLDICE_ITER", 10), smooth=getattr(self.cfg.LOSS, "CLDICE_SMOOTH", 1e-7), ignore_epochs=getattr(self.cfg.LOSS, "IGNORE_EPOCHS", 6), ramp_epochs=getattr(self.cfg.LOSS, "RAMP_EPOCHS", 6), steps_per_epoch=getattr(self.cfg.LOSS, "STEPS_PER_EPOCH", 1800), empty_min_voxels=getattr(self.cfg.LOSS, "EMPTY_MIN_VOXELS", 75),
+                empty_frac=getattr(self.cfg.LOSS, "EMPTY_FRAC", None),)
         #elif self.cfg.LOSS.TYPE == "CLDICE": 
         #    self.loss = SoftclDiceDiceBCELoss(alpha_cldice=1.0, alpha_dice=0.0, iter_=2, smooth=0.0000001)
             #clDICE- BCE :
