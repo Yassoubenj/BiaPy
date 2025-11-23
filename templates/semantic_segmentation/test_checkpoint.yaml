@@ -6,39 +6,101 @@ SYSTEM:
 PROBLEM:
     TYPE: SEMANTIC_SEG
     NDIM: 3D
-
+  
 DATA: 
     PATCH_SIZE: (32, 128, 128, 3)
+    TRAIN:
+      PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/raw
+      GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/label
+      IN_MEMORY: True
+    VAL:
+        SPLIT_TRAIN: 0.1
     TEST: 
-        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/raw
-        GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/label                                                                                                              
-        IN_MEMORY: True
-        LOAD_GT: True
+        PATH: /home/yasminebenjelloun/dataset/FusedAAA179_pcorr-to_trace.tif
+        # GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/label                                                                                                              
+        IN_MEMORY: False
+        LOAD_GT: False
         PADDING: (10,10,10)
 
-MODEL:
-  LOAD_CHECKPOINT: True
-  LOAD_CHECKPOINT_ONLY_WEIGHTS: True    # on ne veut que les poids, pas l’optimiseur
-  LOAD_CHECKPOINT_EPOCH: "best_on_val"  # on veut le meilleur modèle sur la validation
-  LOAD_MODEL_FROM_CHECKPOINT: True    # reconstruit tout à partir du checkpoint
-PATHS:
-  CHECKPOINT_FILE: /chemin/complet/vers/mon_checkpoint.safetensors
+AUGMENTOR:
+    ENABLE: True
+    RANDOM_ROT: True
+    VFLIP: True
+    HFLIP: True
+    ZFLIP: True
 
+
+MODEL:
+    ARCHITECTURE: resunet
+    FEATURE_MAPS: [16, 32, 64, 128, 256]
+    LOAD_CHECKPOINT: True
+
+PATHS:
+  CHECKPOINT_FILE: /home/yasminebenjelloun/BiaPy/result/Test_yaml_BRAINBOW_DICE_200epochs/checkpoints/Test_yaml_BRAINBOW_DICE_200epochs_1-checkpoint-best.pth
 
 TRAIN:
-  ENABLE: False
-  METRICS : ["iou", "cldice", "skeldist", "skeldice"]
-  OPTIMIZER: ADAMW
-  LR: 1.E-3
-  BATCH_SIZE: 4
-  EPOCHS: 200
-  PATIENCE: 30
-  LR_SCHEDULER:
-    NAME: 'onecycle'
-
+    ENABLE: False
+    METRICS : ["iou", "cldice", "skeldist", "skeldice"]
+    OPTIMIZER: ADAMW
+    LR: 1.E-3
+    BATCH_SIZE: 4
+    EPOCHS: 200
+    PATIENCE: 30
+    LR_SCHEDULER:
+        NAME: 'onecycle'    # use one-cycle learning rate scheduler
+  
 TEST:
-  ENABLE: True
-  AUGMENTATION: False
-  FULL_IMG: False
-  METRICS : ["iou", "cldice", "skeldist", "skeldice"]
+    ENABLE: True
+    AUGMENTATION: False
+    FULL_IMG: False
+    METRICS : ["iou", "cldice", "skeldist", "skeldice"]
+
+LOSS:
+    TYPE: CLDICE
+
+
+
+# # BiaPy version: 3.5.13
+
+# SYSTEM:
+#     NUM_CPUS: -1
+
+# PROBLEM:
+#     TYPE: SEMANTIC_SEG
+#     NDIM: 3D
+
+# DATA: 
+#     PATCH_SIZE: (32, 128, 128, 3)
+#     TEST: 
+#         PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/raw
+#         GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/label                                                                                                              
+#         IN_MEMORY: True
+#         LOAD_GT: True
+#         PADDING: (10,10,10)
+
+# MODEL:
+#   LOAD_CHECKPOINT: True
+#   LOAD_CHECKPOINT_ONLY_WEIGHTS: True    # on ne veut que les poids, pas l’optimiseur
+#   LOAD_CHECKPOINT_EPOCH: "best_on_val"  # on veut le meilleur modèle sur la validation
+#   LOAD_MODEL_FROM_CHECKPOINT: True    # reconstruit tout à partir du checkpoint
+# PATHS:
+#   CHECKPOINT_FILE: 
+
+
+# TRAIN:
+#   ENABLE: False
+#   METRICS : ["iou", "cldice", "skeldist", "skeldice"]
+#   OPTIMIZER: ADAMW
+#   LR: 1.E-3
+#   BATCH_SIZE: 4
+#   EPOCHS: 200
+#   PATIENCE: 30
+#   LR_SCHEDULER:
+#     NAME: 'onecycle'
+
+# TEST:
+#   ENABLE: True
+#   AUGMENTATION: False
+#   FULL_IMG: False
+#   METRICS : ["iou", "cldice", "skeldist", "skeldice"]
 
