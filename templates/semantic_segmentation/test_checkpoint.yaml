@@ -16,7 +16,7 @@ DATA:
     VAL:
         SPLIT_TRAIN: 0.1
     TEST: 
-        PATH: /home/yasminebenjelloun/dataset/test_infer
+        PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/raw
         # GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/test/label                                                                                                              
         IN_MEMORY: False
         LOAD_GT: False
