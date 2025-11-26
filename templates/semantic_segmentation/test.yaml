@@ -9,10 +9,10 @@ PROBLEM:
   
 DATA: 
     PATCH_SIZE: (32, 128, 128, 3)
-    EXTRACT_RANDOM_PATCH : True
-    PROBABILITY_MAP : True
-    W_FOREGROUND : 0.94
-    W_BACKGROUND : 0.06
+    # EXTRACT_RANDOM_PATCH : True
+    # PROBABILITY_MAP : True
+    # W_FOREGROUND : 0.94
+    # W_BACKGROUND : 0.06
     TRAIN:
       PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/raw
       GT_PATH: /home/yasminebenjelloun/dataset/segmentation_data_moyen_10000/train/label
@@ -49,7 +49,7 @@ TRAIN:
     ENABLE: True
     METRICS : ["iou", "cldice", "skeldist", "skeldice"]
     OPTIMIZER: ADAMW
-    LR: 1.E-3
+    LR: 5e-4
     BATCH_SIZE: 4
     EPOCHS: 200
     PATIENCE: 30
