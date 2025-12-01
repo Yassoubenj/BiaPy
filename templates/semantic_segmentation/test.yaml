@@ -49,12 +49,13 @@ TRAIN:
     ENABLE: True
     METRICS : ["iou", "cldice", "skeldist", "skeldice"]
     OPTIMIZER: ADAMW
-    LR: 5.E-4
+    LR: 1.E-3
     BATCH_SIZE: 4
     EPOCHS: 200
     PATIENCE: 30
     LR_SCHEDULER:
-        NAME: 'onecycle'    # use one-cycle learning rate scheduler
+        #NAME: 'onecycle'
+        NAME: 'warmupcosine'    # use one-cycle learning rate scheduler
   
 TEST:
     ENABLE: True
