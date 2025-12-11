@@ -54,17 +54,20 @@ TRAIN:
     EPOCHS: 200
     PATIENCE: 30
     LR_SCHEDULER:
-        #NAME: 'onecycle'
-        NAME: 'warmupcosine'
-        MIN_LR: 1.E-6
-        WARMUP_COSINE_DECAY_EPOCHS: 50    # use one-cycle learning rate scheduler
+        NAME: 'onecycle'    # use one-cycle learning rate scheduler
+  
+    # LR_SCHEDULER:
+    #     #NAME: 'onecycle'
+    #     NAME: 'warmupcosine'
+    #     MIN_LR: 1.E-6
+    #     WARMUP_COSINE_DECAY_EPOCHS: 50    # use one-cycle learning rate scheduler
   
 TEST:
     ENABLE: True
     AUGMENTATION: False
     FULL_IMG: False
     METRICS : ["iou", "cldice", "skeldist", "skeldice"]
-
+    
 LOSS:
-    TYPE: DICE
+    TYPE: W_CE_DICE
 
