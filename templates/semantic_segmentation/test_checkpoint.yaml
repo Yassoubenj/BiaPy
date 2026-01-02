@@ -6,7 +6,7 @@ SYSTEM:
 PROBLEM:
     TYPE: SEMANTIC_SEG
     NDIM: 3D
-  
+
 DATA: 
     PATCH_SIZE: (32, 128, 128, 3)
     TRAIN:
@@ -31,16 +31,16 @@ AUGMENTOR:
 
 
 MODEL:
-    ARCHITECTURE: resunet
+    ARCHITECTURE: resunet++
     FEATURE_MAPS: [16, 32, 64, 128, 256]
     LOAD_CHECKPOINT: True
 
 PATHS:
-  CHECKPOINT_FILE: /home/yasminebenjelloun/BiaPy/result/Test_yaml_BRAINBOW_DICE_200epochs/checkpoints/Test_yaml_BRAINBOW_DICE_200epochs_1-checkpoint-best.pth
+  CHECKPOINT_FILE: /home/yasminebenjelloun/BiaPy/result/Test_brainbow_resunet++_300epoch_DICE\checkpoints\Test_brainbow_resunet++_300epoch_DICE_1-checkpoint-best.pth
 
 TRAIN:
     ENABLE: False
-    METRICS : ["iou", "cldice", "skeldist", "skeldice"]
+    METRICS : ["iou", "cldice"]
     OPTIMIZER: ADAMW
     LR: 1.E-3
     BATCH_SIZE: 4
@@ -53,10 +53,10 @@ TEST:
     ENABLE: True
     AUGMENTATION: False
     FULL_IMG: False
-    METRICS : ["iou", "cldice", "skeldist", "skeldice"]
+    METRICS : ["iou", "cldice"]
 
 LOSS:
-    TYPE: CLDICE
+    TYPE: DICE
 
 
 
