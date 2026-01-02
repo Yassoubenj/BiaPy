@@ -36,7 +36,7 @@ MODEL:
     LOAD_CHECKPOINT: True
 
 PATHS:
-  CHECKPOINT_FILE: /home/yasminebenjelloun/BiaPy/result/Test_brainbow_resunet++_300epoch_DICE\checkpoints\Test_brainbow_resunet++_300epoch_DICE_1-checkpoint-best.pth
+  CHECKPOINT_FILE: /home/yasminebenjelloun/BiaPy/result/Test_brainbow_resunet++_300epoch_DICE/checkpoints/Test_brainbow_resunet++_300epoch_DICE_1-checkpoint-best.pth
 
 TRAIN:
     ENABLE: False
