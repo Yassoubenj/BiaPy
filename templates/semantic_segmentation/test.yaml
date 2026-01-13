@@ -9,8 +9,8 @@ PROBLEM:
   
 DATA: 
     PATCH_SIZE: (32, 128, 128, 3)
-    # EXTRACT_RANDOM_PATCH : True
-    # PROBABILITY_MAP : True
+    #EXTRACT_RANDOM_PATCH : True
+    #PROBABILITY_MAP : True
     # W_FOREGROUND : 0.94
     # W_BACKGROUND : 0.06
     TRAIN:
@@ -38,7 +38,7 @@ AUGMENTOR:
     # BRIGHTNESS_FACTOR: (-0.3, 0.3)
     # GAMMA_CONTRAST: True
     # GC_GAMMA: (0.5, 1.5)
-    # CHANNEL_SHUFFLE: True
+    CHANNEL_SHUFFLE: True
 
 MODEL:
     ARCHITECTURE: resunet++
