@@ -22,8 +22,8 @@ DATA:
         IN_MEMORY: False
         LOAD_GT: True
         PADDING: (4,8,8)
-    # NORMALIZATION:
-    #     TYPE: "zero_mean_unit_variance"
+    NORMALIZATION :
+        TYPE : "scale_range"
 
 AUGMENTOR:
     ENABLE: True
