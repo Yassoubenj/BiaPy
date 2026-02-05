@@ -53,10 +53,11 @@ TRAIN:
     OPTIMIZER: ADAMW
     LR: 5.E-4
     BATCH_SIZE: 4
-    EPOCHS: 300
+    EPOCHS: 400
     PATIENCE: 30
     LR_SCHEDULER:
         NAME: 'onecycle'    # use one-cycle learning rate scheduler
+        #NAME:'reduceonplateau'
   
     # LR_SCHEDULER:
     #     #NAME: 'onecycle'
