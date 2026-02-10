@@ -144,6 +144,68 @@ class SkeletonAlignmentScore:
         if isinstance(y_pred, torch.Tensor):
             return torch.tensor(mean_score, device=y_pred.device, dtype=y_pred.dtype)
         return mean_score
+    
+#FONCTION COLOR LOSS AJOUTER 
+def color_loss(img, logits, gt, eps=1e-6):
+    """
+    img    : [B, C, *spatial*]   (2D: H,W  / 3D: D,H,W)
+    logits : [B, 1, *spatial*]   (logits du modèle)
+    gt     : [B, 1, *spatial*]   (masque binaire 0/1 : axone central)
+
+    Retourne un scalaire : distance entre
+      - la couleur moyenne de l'axone central (GT)
+      - la couleur moyenne de la région prédite
+    """
+    # sécu : on force le GT en masque binaire 0/1
+    gt = (gt > 0.5).float()
+
+    B, C = img.shape[:2]
+    spatial_dims = img.shape[2:]
+
+    # nb de voxels par patch (H*W ou D*H*W)
+    N = 1
+    for d in spatial_dims:
+        N *= d
+
+    # flatten spatial -> N
+    img_flat  = img.view(B, C, N)      # intensités image
+    gt_flat   = gt.view(B, 1, N)       # 0/1
+    prob      = torch.sigmoid(logits)  # [B, 1, *]
+    prob_flat = prob.view(B, 1, N)     # [B, 1, N]
+
+    # --- couleur moyenne du GT (axone central réel) ---
+    # distribution de proba sur les voxels où gt=1
+    w_gt  = gt_flat / (gt_flat.sum(dim=2, keepdim=True) + eps)   # [B, 1, N]
+    mu_gt = (img_flat * w_gt).sum(dim=2)                         # [B, C]
+
+    # --- couleur moyenne de la région prédite ---
+    w_pred  = prob_flat / (prob_flat.sum(dim=2, keepdim=True) + eps)
+    mu_pred = (img_flat * w_pred).sum(dim=2)                     # [B, C]
+
+    # distance L2 moyenne entre μ_pred et μ_gt
+    return ((mu_pred - mu_gt) ** 2).mean()
+
+class DiceColorLoss(nn.Module):
+    def __init__(self, lambda_dice: float = 1.0, lambda_color: float = 0.1):
+        """
+        loss = lambda_dice * DiceLoss_BiaPy + lambda_color * ColorLoss
+        """
+        super().__init__()
+        self.lambda_dice = lambda_dice
+        self.lambda_color = lambda_color
+        self.dice = DiceLoss()
+
+    def forward(self, y_pred, y_true, img):
+        """
+        y_pred : logits [B, 1, *spatial*]
+        y_true : GT binaire [B, 1, *spatial*]
+        img    : image RAW multi-canal [B, C, *spatial*]
+        """
+        dice_val  = self.dice(y_pred, y_true)
+        color_val = color_loss(img, y_pred, y_true)
+
+        loss = self.lambda_dice * dice_val + self.lambda_color * color_val
+        return loss
 
 
 class CenterlineDice:
